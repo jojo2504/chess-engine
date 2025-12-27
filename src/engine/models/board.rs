@@ -35,7 +35,15 @@ impl Chessboard {
     fn parse_fen(&self, fen: String) {
         todo!()
     }
-
+    
+    pub fn get_all_possible_moves() {
+        todo!()
+    }
+    
+    pub fn is_in_check() -> bool {
+        todo!()
+    }
+    
     pub fn perft(&self, depth: u8) -> u64 {
         todo!()
     }
