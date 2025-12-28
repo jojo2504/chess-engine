@@ -108,18 +108,18 @@ fn knight() -> &'static Knight {
     KNIGHT.get_or_init(|| {
         let mut knight = Knight { knight_move_masks: [0; 64] };
         
+        let spot_1_clip = File::FileA.clear() & File::FileB.clear();
+        let spot_2_clip = File::FileA.clear();
+        let spot_3_clip = File::FileH.clear();
+        let spot_4_clip = File::FileH.clear() & File::FileG.clear();
+
+        let spot_5_clip = File::FileH.clear() & File::FileG.clear();
+        let spot_6_clip = File::FileH.clear();
+        let spot_7_clip = File::FileA.clear();
+        let spot_8_clip = File::FileA.clear() & File::FileB.clear();
+
         for i in 0..64 {
             let knight_location = 1u64 << i;
-            let spot_1_clip = File::FileA.clear() & File::FileB.clear();
-            let spot_2_clip = File::FileA.clear();
-            let spot_3_clip = File::FileH.clear();
-            let spot_4_clip = File::FileH.clear() & File::FileG.clear();
-
-            let spot_5_clip = File::FileH.clear() & File::FileG.clear();
-            let spot_6_clip = File::FileH.clear();
-            let spot_7_clip = File::FileA.clear();
-            let spot_8_clip = File::FileA.clear() & File::FileB.clear();
-
 
             /* The clipping masks we just created will be used to ensure that no
                 under or overflow positions are computed when calculating the
