@@ -1,40 +1,38 @@
-use crate::engine::models::types::Bitboard;
-
 pub enum Piece {
-    Pawn(Pawn),
-    Knight(Knight),
-    Bishop(Bishop),
-    Rook(Rook),
-    Queen(Queen),
-    King(King),
+    Pawn,
+    Knight,
+    Bishop,
+    Rook,
+    Queen,
+    King,
 }
 
-pub struct Pawn(pub Bitboard);
+pub struct Pawn;
 
 impl Pawn {
 }
 
-pub struct Knight(pub Bitboard);
+pub struct Knight;
 
 impl Knight {
 }
 
-pub struct Bishop(pub Bitboard);
+pub struct Bishop;
 
 impl Bishop {
 }
 
-pub struct Rook(pub Bitboard);
+pub struct Rook;
 
 impl Rook {
 }
 
-pub struct Queen(pub Bitboard);
+pub struct Queen;
 
 impl Queen {
 }
 
-pub struct King(pub Bitboard);
+pub struct King;
 
 impl King {
 }

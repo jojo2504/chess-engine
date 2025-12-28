@@ -1,8 +1,5 @@
-use crate::engine::models::piece::Piece;
-
-pub mod engine;
+use std::env;
 
 fn main() {
-
-    println!("Hello, world!");
+    let args: Vec<String> = env::args().collect();
 }
