@@ -1,3 +1,4 @@
+/// Quick enum to match pieces
 pub enum Piece {
     Pawn,
     Knight,

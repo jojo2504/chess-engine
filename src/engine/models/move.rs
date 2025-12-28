@@ -1,5 +1,6 @@
 use crate::engine::models::{board::{Chessboard, Color}, piece::Piece};
 
+/// Quick enum to match move kinds
 enum MoveKind {
     QuietMoves = 0,
     DoublePawnPush = 1,
