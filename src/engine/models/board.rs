@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{collections::HashMap, fmt};
 
 /// Represents a board rank, or horizontal line. `A1..H1`
 pub enum Rank {
@@ -22,22 +22,70 @@ enum Board {
     FULL = u64::MAX
 }
 
-pub struct Chessboard {
+type Bitboard = u64;
 
+/**
+ * Describe the pieces of the board,
+ * solely from a specific side.
+ * 
+ * Does consider exclusively the very position
+ * of the pieces. Everything else is ignored.
+ */
+struct OneSideBoard {
+    pawns: u64,
+    rooks: u64,
+    knights: u64,
+    bishops: u64,
+    queens: u64,
+    king: u64,
 }
 
+pub struct Chessboard {
+    white_pieces: OneSideBoard,
+    black_pieces: OneSideBoard,
+
+    checkmated: bool,
+    stalemated: bool,
+}
+
+/**
+ * |R|N|B|Q|K|B|N|R|
+ * |P|P|P|P|P|P|P|P|
+ * | | | | | | | | |
+ * | | | | | | | | |
+ * | | | | | | | | |
+ * | | | | | | | | |
+ * | | | | | | | | |
+ * | | | | | | | | |
+*/
 impl Chessboard {
     /// Default chessboard's constructor initilized with the default fen value, or classic starting position 
     pub fn new() -> Self {
-        todo!()
+        let black_pieces = OneSideBoard {
+            rooks  : 0b10000001 << 56,
+            knights: 0b01000010 << 56,
+            bishops: 0b00100100 << 56,
+            queens : 0b00010000 << 56,
+            king   : 0b00001000 << 56,
+            pawns  : 0b11111111 << 48,
+        };
+
+        let white_pieces = OneSideBoard {
+            rooks  : 0b10000001,
+            knights: 0b01000010,
+            bishops: 0b00100100,
+            queens : 0b00010000,
+            king   : 0b00001000,
+            pawns  : 0b11111111 << 8,
+        };
+        Chessboard { white_pieces, black_pieces, checkmated: false, stalemated: false }
     }
 
-    /// Special chessboard's constructor for initilizing a custom position and state using a custom fen value
-    /// ```rust
-    /// Chessboard::with_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
-    /// ```
-    pub fn with_fen(fen: &str) -> Self {
-        todo!()
+    pub fn from_fen(fen: &str) -> Result<Self, &'static str> {
+        let halfmoves: u8 = 0;
+        let fullmoves: u8 = 0;
+
+        Ok(Chessboard { white_pieces: (), black_pieces: (), checkmated: (), stalemated: () })
     }
     
     pub fn get_all_possible_moves() {
