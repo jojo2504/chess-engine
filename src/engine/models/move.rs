@@ -1,4 +1,4 @@
-use crate::engine::models::{board::{Chessboard, Color}, piece::Piece};
+use crate::engine::models::{board::{Chessboard, Color, Square}, piece::Piece};
 
 /// Quick enum to match move kinds
 #[derive(Debug, Clone, Copy)]
@@ -19,55 +19,63 @@ enum MoveKind {
     QueenPromotionCapture = 15
 }
 
+#[derive(PartialEq, Eq)]
 pub struct Move {
-    
+    pub word: u16,
+    pub piece_type: Piece,
+    pub from: u64,
+    pub to: u64
 }
 
 impl Move {
-    /// Returns all the playable moves encoded as uci.
+    pub fn new(word: u16, piece_type: Piece) -> Self {
+        let from = 1u64 << (word >> 10);
+        let to = 1u64 << ((word >> 4) & 0x3F);
+        
+        Self {
+            word,
+            piece_type,
+            from,
+            to,
+        }
+    }
+    
+    #[inline]
+    pub fn move_kind_code(&self) -> u8 {
+        (self.word & 0b1111) as u8
+    }
+    
+    #[inline]
+    pub fn castle_flag(&self) -> bool {
+        (self.word & 0b1010) == 0b0010
+    }
+    
+    #[inline]
+    pub fn capture_flag(&self) -> bool {
+        (self.word & 0b0100) != 0
+    }
+    
+    #[inline]
+    pub fn promotion_flag(&self) -> bool {
+        (self.word & 0b1000) != 0
+    }
+    
+    #[inline]
+    pub fn piece_type(&self) -> Piece {
+        self.piece_type
+    }
+
     pub fn get_ucis() -> Vec<String> {
         todo!()
     }
-
+    
     /// Decodes incoming uci encoded move into a `Move` object.
     pub fn decode_uci() -> Move {
         todo!()
     }
-
-    /// Use this method when required to "slide" a piece, meaning a piece leaving its starting square and ending on its destination square.
-    /// 
-    /// You should also combine it with [Move::toggle_piece()] when capturing pieces.
-    /// 
-    /// # Exemple 
-    /// ```rust
-    /// use chess_engine::engine::models::r#move::Move;
-    /// 
-    /// // Move a bishop to e4
-    /// Move::slide_piece(...);
-    /// // Remove the captured piece
-    /// Move::toggle_piece(...);
-    /// ```
-    pub fn slide_piece(chessboard: &mut Chessboard, board: &mut u64, from: u64, to: u64, side: Color) {
-        todo!()
-    }
-
-    /// Use this method when required to put a piece without moving one or removing a piece, like during game initialization, captures or promotions.
-    pub fn toggle_piece(chessboard: &mut Chessboard, board: &mut u64, square: u64, piece: Piece, side: Color) {
-        todo!()
-    }
-
+    
     /// Used by UCI to decode a move from a string when played from the GUI.
     pub fn get_move_kind() {
-        todo!()
-    }
-
-    /// Make a move on the chessboard itself.
-    pub fn make(chessboard: &mut Chessboard, r#move: Move) {
-        todo!()
-    }
-    
-    /// Unmake a move on the chessboard itself.
-    pub fn unmake(chessboard: &mut Chessboard, r#move: Move) {
         todo!()
     }
 }
