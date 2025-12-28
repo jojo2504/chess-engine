@@ -1,6 +1,7 @@
 use crate::engine::models::{board::{Chessboard, Color}, piece::Piece};
 
 /// Quick enum to match move kinds
+#[derive(Debug, Clone, Copy)]
 enum MoveKind {
     QuietMoves = 0,
     DoublePawnPush = 1,
@@ -33,7 +34,7 @@ impl Move {
         todo!()
     }
 
-    /// Use this method when required to put a piece by moving one, like passive moves, captures, etc...
+    /// Use this method when required to "slide" a piece, meaning a piece leaving its starting square and ending on its destination square.
     /// 
     /// You should also combine it with [Move::toggle_piece()] when capturing pieces.
     /// 
@@ -42,9 +43,9 @@ impl Move {
     /// use chess_engine::engine::models::r#move::Move;
     /// 
     /// // Move a bishop to e4
-    /// Move::slide_piece();
+    /// Move::slide_piece(...);
     /// // Remove the captured piece
-    /// Move::toggle_piece();
+    /// Move::toggle_piece(...);
     /// ```
     pub fn slide_piece(chessboard: &mut Chessboard, board: &mut u64, from: u64, to: u64, side: Color) {
         todo!()

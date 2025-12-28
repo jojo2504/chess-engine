@@ -28,9 +28,9 @@ impl Engine {
     }
 
     /// Initializing the engine's chessboard with a custom position, parsed using fen.
-    pub fn with_fen(fen: &str) -> Self {
+    pub fn from_fen(fen: &str) -> Self {
         Self {
-            chessboard: Chessboard::with_fen(fen)
+            chessboard: Chessboard::from_fen(fen)
         }
     }
 

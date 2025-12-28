@@ -5,9 +5,69 @@ pub enum Rank {
     Rank1, Rank2, Rank3, Rank4, Rank5, Rank6, Rank7, Rank8
 }
 
+impl Rank {
+    pub fn get_mask(self) -> u64 {
+        use Rank::*;
+        match self {
+            Rank1 => 0xFF,
+            Rank2 => 0xFF00,
+            Rank3 => 0xFF0000,
+            Rank4 => 0xFF000000,
+            Rank5 => 0xFF00000000,
+            Rank6 => 0xFF0000000000,
+            Rank7 => 0xFF000000000000,
+            Rank8 => 0xFF00000000000000,
+        }
+    }
+        
+    pub fn get_clear(self) -> u64 {
+        use Rank::*;
+        match self {
+            Rank1 => 0xFFFFFFFFFFFFFF00,
+            Rank2 => 0xFFFFFFFFFFFF00FF,
+            Rank3 => 0xFFFFFFFFFF00FFFF,
+            Rank4 => 0xFFFFFFFF00FFFFFF,
+            Rank5 => 0xFFFFFF00FFFFFFFF,
+            Rank6 => 0xFFFF00FFFFFFFFFF,
+            Rank7 => 0xFF00FFFFFFFFFFFF,
+            Rank8 => 0x00FFFFFFFFFFFFFF,
+        }
+    }
+}
+
 /// Represents a board file, or vertical line. `A1..A8`
 pub enum File {
     FileA, FileB, FileC, FileD, FileE, FileF, FileG, FileH
+}
+
+impl File {
+    pub fn get_mask(self) -> u64 {
+        use File::*;
+        match self {
+            FileA => 0x0101010101010101,
+            FileB => 0x0202020202020202,
+            FileC => 0x0404040404040404,
+            FileD => 0x0808080808080808,
+            FileE => 0x1010101010101010,
+            FileF => 0x2020202020202020,
+            FileG => 0x4040404040404040,
+            FileH => 0x8080808080808080,
+        }
+    }
+
+    pub fn get_clear(self) -> u64 {
+        use File::*;
+        match self {
+            FileA => 0xFEFEFEFEFEFEFEFE,
+            FileB => 0xFDFDFDFDFDFDFDFD,
+            FileC => 0xFBFBFBFBFBFBFBFB,
+            FileD => 0xF7F7F7F7F7F7F7F7,
+            FileE => 0xEFEFEFEFEFEFEFEF,
+            FileF => 0xDFDFDFDFDFDFDFDF,
+            FileG => 0xBFBFBFBFBFBFBFBF,
+            FileH => 0x7F7F7F7F7F7F7F7F,
+        }
+    }
 }
 
 /// Reprensents one of the two piece's color
@@ -16,10 +76,29 @@ pub enum Color {
     Black
 }
 
+/// Constant values of a board state.
 #[repr(u64)]
-enum Board {
+pub enum Board {
     EMPTY = 0u64,
     FULL = u64::MAX
+}
+
+impl Board {
+    pub fn get_corner_clear() -> u64 {
+        0x7EFFFFFFFFFFFF7E
+    }
+
+    pub fn get_corner_mask() -> u64 {
+        0x8100000000000081
+    }
+
+    pub fn get_all_border_clear() -> u64 {
+        0x7E7E7E7E7E7E00
+    } 
+
+    pub fn get_all_border_mask() -> u64 {
+        0xFF818181818181FF
+    }
 }
 
 type Bitboard = u64;
@@ -81,11 +160,11 @@ impl Chessboard {
         Chessboard { white_pieces, black_pieces, checkmated: false, stalemated: false }
     }
 
-    pub fn from_fen(fen: &str) -> Result<Self, &'static str> {
+    pub fn from_fen(fen: &str) -> Self {
         let halfmoves: u8 = 0;
         let fullmoves: u8 = 0;
 
-        Ok(Chessboard { white_pieces: (), black_pieces: (), checkmated: (), stalemated: () })
+        todo!()
     }
     
     pub fn get_all_possible_moves() {
