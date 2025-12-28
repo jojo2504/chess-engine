@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fmt};
 
-use crate::engine::models::{r#move::Move, piece::Piece, state::State};
+use crate::engine::models::{r#move::Move, piece::{King, Knight, Pawn, Piece}, state::State};
 
 /// Represents a board rank, or horizontal line. `A1..H1`
 pub enum Rank {
@@ -8,7 +8,7 @@ pub enum Rank {
 }
 
 impl Rank {
-    pub fn get_mask(self) -> u64 {
+    pub fn mask(self) -> u64 {
         use Rank::*;
         match self {
             Rank1 => 0xFF,
@@ -22,7 +22,7 @@ impl Rank {
         }
     }
         
-    pub fn get_clear(self) -> u64 {
+    pub fn clear(self) -> u64 {
         use Rank::*;
         match self {
             Rank1 => 0xFFFFFFFFFFFFFF00,
@@ -43,7 +43,7 @@ pub enum File {
 }
 
 impl File {
-    pub fn get_mask(self) -> u64 {
+    pub fn mask(self) -> u64 {
         use File::*;
         match self {
             FileA => 0x0101010101010101,
@@ -57,7 +57,7 @@ impl File {
         }
     }
 
-    pub fn get_clear(self) -> u64 {
+    pub fn clear(self) -> u64 {
         use File::*;
         match self {
             FileA => 0xFEFEFEFEFEFEFEFE,
@@ -104,6 +104,7 @@ impl Board {
     }
 }
 
+#[derive(Clone, Copy)]
 #[repr(u64)]
 pub enum Square {
     A1 = 1u64 << 0, B1 = 1u64 << 1, C1 = 1u64 << 2, D1 = 1u64 << 3, E1 = 1u64 << 4, F1 = 1u64 << 5, G1 = 1u64 << 6, H1 = 1u64 << 7,
@@ -165,14 +166,95 @@ impl Chessboard {
         
         Chessboard { pieces, white_pieces, black_pieces, state: State::default()}
     }
+    
+    pub fn from_fen(fen: &str) -> Self {
+        todo!()
+    }
 
     #[inline]
     pub fn get_piece(&self, color: Color, piece: Piece) -> u64 {
         self.pieces[color as usize * 6 + piece as usize]
     }
+    
+    #[inline]
+    pub fn get_all_pieces(&self) -> u64 {
+        self.white_pieces | self.black_pieces
+    }
 
-    pub fn from_fen(fen: &str) -> Self {
-        todo!()
+    pub fn get_color_pieces(&self, turn_color: Color) -> u64 {
+        match turn_color {
+            Color::White => self.white_pieces,
+            Color::Black => self.black_pieces,
+        }
+    }
+  
+    pub fn should_check_castling(&self) -> bool {
+        // Quick checks before expensive castling computation
+        return (self.state.turn_color == Color::White && (self.state.can_white_king_castle || self.state.can_black_queen_castle))
+            || (self.state.turn_color == Color::Black && (self.state.can_white_king_castle || self.state.can_black_queen_castle));
+    }
+
+    pub fn is_square_attacked_by_color(&self, square: u64, attacking_side: Color) -> bool {
+        let square_index: usize = square.trailing_zeros() as usize;
+        
+        // Check knight attacks
+        let knights = self.get_piece(attacking_side, Piece::Knight);
+        if (Knight::get_move_mask()[square_index] & knights) != 0 {
+            return true;
+        }
+
+        todo!("need to implement rook and queen attacks");
+        // Check rook and queen attacks (straight lines)
+        // let rooks_queens = self.get_piece(attacking_side, Piece::Queen) | 
+        //                   self.get_piece(attacking_side, Piece::Rook);
+        // if ((Self::get_rook_attack_mask(square_index) & rooks_queens) != 0)
+        //     && (self.compute_rook_attacks(square, attacking_side) & rooks_queens) != 0 {
+        //     return true;
+        // }
+            
+        todo!("need to implement bishop and queen attacks");
+        // // Check bishop and queen attacks (diagonal)
+        // let bishops_queens = self.get_piece(attacking_side, Piece::Queen) |
+        //                     self.get_piece(attacking_side, Piece::Bishop);
+        // if ((Self::get_bishop_attack_mask(square_index) & bishops_queens) != 0)
+        //     && ((self.compute_bishop_attacks(square, attacking_side) & bishops_queens) != 0) {
+        //     return true;
+        // }
+
+        // Check pawn attacks
+        let pawns = self.get_piece(attacking_side, Piece::Pawn);
+        let opponent_color = match attacking_side {
+            Color::White => Color::Black,
+            Color::Black => Color::White,
+        };
+        if (Pawn::get_attack_mask()[(opponent_color as usize + 1) * square_index] & pawns) != 0 {
+            return true;
+        }
+
+        // Check king attacks
+        let king = self.get_piece(attacking_side, Piece::King);
+        if (King::get_move_mask()[square_index] & king) != 0 {
+            return true;
+        }
+
+        false
+    }
+
+    #[inline]
+    pub fn are_any_squares_attacked_by_color(&self, mut squares: u64, attacking_side: Color) -> bool {
+        while squares != 0 {
+            let square = 1u64 << squares.trailing_zeros();
+            squares &= squares - 1;
+            if self.is_square_attacked_by_color(square, attacking_side) {
+                return true;
+            }
+        }
+        false
+    }
+
+    #[inline]
+    pub fn are_any_squares_occupied(&self, squares: u64) -> bool {
+        (squares & self.get_all_pieces()) != 0
     }
 
     /// Use this method when required to "slide" a piece, meaning a piece leaving its starting square and ending on its destination square.
