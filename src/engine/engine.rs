@@ -1,4 +1,7 @@
-use crate::engine::models::{board::Chessboard, r#move};
+#![warn(missing_docs, dead_code)]
+#![deny(unused_imports, unused_mut)]
+
+use crate::engine::models::{board::Chessboard};
 
 /// This is the entry of our chess engine, which will be used to start the game using a chessboard
 /// 

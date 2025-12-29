@@ -1,4 +1,7 @@
-use crate::engine::models::{board::{Chessboard, Color, Square}, piece::Piece};
+#![warn(missing_docs, dead_code)]
+#![deny(unused_imports, unused_mut)]
+
+use crate::engine::models::{piece::Piece};
 
 /// Quick enum to match move kinds
 #[derive(Debug, Clone, Copy)]

@@ -1,7 +1,8 @@
-use std::{fs::{self, File}, io::Read, path::Path};
+#![warn(missing_docs, dead_code)]
+#![deny(unused_imports, unused_mut)]
 
+use std::fs::{self};
 use serde::Deserialize;
-
 use crate::engine::models::board::Square;
 
 #[derive(Debug, Deserialize)]
@@ -13,6 +14,7 @@ pub struct Magic {
 }
 
 impl Magic {
+    /// Helper method to load magic table for both [chess_engine::engine::models::piece::Rook] and bishop
     pub fn load_magic_table(path: &str) -> anyhow::Result<Vec<Magic>> {
         let json_str = fs::read_to_string(path)?;
         let magics: Vec<Magic> = serde_json::from_str(&json_str)?;

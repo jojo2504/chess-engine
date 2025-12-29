@@ -1,10 +1,12 @@
+#![warn(missing_docs, dead_code)]
+#![deny(unused_imports, unused_mut)]
+
 use std::fmt;
-
 use serde::Deserialize;
-
 use crate::engine::models::{r#move::Move, piece::{Bishop, King, Knight, Pawn, Piece, Rook, SuperPiece}, state::State};
 
 /// Represents a board rank, or horizontal line. `A1..H1`
+#[allow(missing_docs)]
 pub enum Rank {
     Rank1, Rank2, Rank3, Rank4, Rank5, Rank6, Rank7, Rank8
 }
@@ -58,6 +60,7 @@ impl TryFrom<i32> for Rank {
 }
 
 /// Represents a board file, or vertical line. `A1..A8`
+#[allow(missing_docs)]
 pub enum File {
     FileA, FileB, FileC, FileD, FileE, FileF, FileG, FileH
 }
@@ -142,6 +145,7 @@ impl Board {
     }
 }
 
+#[allow(missing_docs)]
 #[derive(Debug, Clone, Copy, Deserialize)]
 #[repr(u64)]
 pub enum Square {
@@ -232,6 +236,7 @@ impl Chessboard {
         self.white_pieces | self.black_pieces
     }
 
+    #[inline]
     pub fn get_color_pieces(&self, turn_color: Color) -> u64 {
         match turn_color {
             Color::White => self.white_pieces,
@@ -245,7 +250,10 @@ impl Chessboard {
             || (self.state.turn_color == Color::Black && (self.state.can_white_king_castle || self.state.can_black_queen_castle));
     }
 
-    pub fn is_square_attacked_by_color(&self, square: u64, attacking_side: Color) -> bool {
+    /// Checks if a given square is attacked by any other pieces of the opponant color.
+    /// 
+    /// Used by [Chessboard::any_attacked_squared_by_side]
+    fn is_square_attacked_by_color(&self, square: u64, attacking_side: Color) -> bool {
         let square_index: usize = square.trailing_zeros() as usize;
         
         // Check knight attacks
@@ -290,6 +298,8 @@ impl Chessboard {
     }
 
     /// Checks if any given squares (reprensented as 1s in the `squares: u64`) is attacked by the `attacking_side` pieces.
+    ///
+    /// This is particularly useful for checking castle rights.
     #[inline]
     pub fn any_attacked_squared_by_side(&self, mut squares: u64, attacking_side: Color) -> bool {
         while squares != 0 {
@@ -350,19 +360,17 @@ impl Chessboard {
         todo!()
     }
     
-    pub fn get_all_possible_moves() {
-        todo!()
-    }
-    
     /// Checks if the current tested side king is in check or not
     pub fn is_in_check(&self, side: Color) -> bool {
         todo!()
     }
 
+    /// Generate all **SPEUDO LEGAL** moves for a given piece and color, updating the `all_pseudo_legal_moves` vector at the same time.
     fn get_all_possible_piece_moves(&self, side: Color, piece: Piece, all_pseudo_legal_moves: &mut Vec<Move>, move_count: &mut usize) {
         todo!()
     }
-
+    
+    /// Generate all **SPEUDO LEGAL** moves, updating the `all_pseudo_legal_moves` vector at the same time and returning the number of distinct **SPEUDO LEGAL** moves.
     fn generate_moves(&self, all_pseudo_legal_moves: &mut Vec<Move>) -> usize {
         let mut move_count: usize = 0;
         for i in 0..6 {

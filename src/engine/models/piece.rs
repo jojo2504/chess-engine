@@ -1,8 +1,12 @@
+#![warn(missing_docs, dead_code)]
+#![deny(unused_imports, unused_mut)]
+
 use std::sync::OnceLock;
 
 use crate::engine::{magic::magic::Magic, models::board::{Board, Chessboard, Color, File, Rank}};
 
 /// Quick enum to match pieces
+#[allow(missing_docs)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Piece {
     Pawn,

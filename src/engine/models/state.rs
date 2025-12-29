@@ -1,3 +1,6 @@
+#![warn(missing_docs, dead_code)]
+#![deny(unused_imports, unused_mut)]
+
 use crate::engine::models::{board::{Color, 
     Square}, piece::Piece};
 
