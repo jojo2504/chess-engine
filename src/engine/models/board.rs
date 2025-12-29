@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt};
+use std::fmt;
 
 use serde::Deserialize;
 
@@ -176,7 +176,9 @@ pub struct Chessboard {
     pub white_pieces: u64,
     pub black_pieces: u64,
 
-    pub state: State
+    pub state: State,
+    pub state_stack: Vec<State>,
+    pub ply_index: usize
 }
 
 impl Chessboard {
@@ -202,7 +204,18 @@ impl Chessboard {
         let white_pieces = pieces[0] | pieces[1] | pieces[2] | pieces[3] | pieces[4] | pieces[5];
         let black_pieces = pieces[6] | pieces[7] | pieces[8] | pieces[9] | pieces[10] | pieces[11];
         
-        Chessboard { pieces, white_pieces, black_pieces, state: State::default()}
+        let state = State::default();
+        let mut state_stack = Vec::with_capacity(8191); // 8192 - 1
+        state_stack[0] = state.clone();
+
+        Chessboard { 
+            pieces, 
+            white_pieces, 
+            black_pieces, 
+            state: state,
+            state_stack: state_stack,
+            ply_index: 0
+        }
     }
     
     pub fn from_fen(fen: &str) -> Self {
@@ -310,23 +323,30 @@ impl Chessboard {
     /// Move::toggle_piece(...);
     /// ```
     #[inline]
-    pub fn slide_piece(piece_bitboard: &mut u64, color_piece_bitboard: &mut u64, from: u64, to: u64) {
+    pub fn slide_piece(&mut self, piece_bitboard: &mut u64, from: u64, to: u64, side: Color) {
         *piece_bitboard ^= from ^ to;
-        *color_piece_bitboard ^= from ^ to;
+        match side {
+            Color::White => self.white_pieces ^= from ^ to,
+            Color::Black => self.black_pieces ^= from ^ to,
+        }
     }
 
     /// Use this method when required to put a piece without moving one or removing a piece, like during game initialization, captures or promotions.
-    pub fn toggle_piece(&mut self, square: u64, piece: Piece, side: Color) {
-        todo!()
+    pub fn toggle_piece(&mut self, piece_bitboard: &mut u64, square: u64, side: Color) {
+        *piece_bitboard ^= square;
+        match side {
+            Color::White => self.white_pieces ^= square,
+            Color::Black => self.black_pieces ^= square,
+        }
     }
 
     /// Make a move on the chessboard itself.
-    pub fn make(&mut self, r#move: Move) {
+    pub fn make(&mut self, r#move: &Move) {
         todo!()
     }
     
     /// Unmake a move on the chessboard itself.
-    pub fn unmake(&mut self, r#move: Move) {
+    pub fn unmake(&mut self, r#move: &Move) {
         todo!()
     }
     
@@ -335,13 +355,43 @@ impl Chessboard {
     }
     
     /// Checks if the current tested side king is in check or not
-    pub fn is_in_check(side: Color) -> bool {
+    pub fn is_in_check(&self, side: Color) -> bool {
         todo!()
+    }
+
+    fn get_all_possible_piece_moves(&self, side: Color, piece: Piece, all_pseudo_legal_moves: &mut Vec<Move>, move_count: &mut usize) {
+        todo!()
+    }
+
+    fn generate_moves(&self, all_pseudo_legal_moves: &mut Vec<Move>) -> usize {
+        let mut move_count: usize = 0;
+        for i in 0..6 {
+            self.get_all_possible_piece_moves(self.state.turn_color, Piece::try_from(i).unwrap(), all_pseudo_legal_moves, &mut move_count);
+        }
+
+        return move_count;
     }
     
     /// Performs a `perft` performance and debugging test returning the total number of positions at the end
-    pub fn perft(&self, depth: u8) -> u64 {
-        todo!()
+    pub fn perft(&mut self, depth: u8) -> u64 {
+        if depth == 0 {
+            return 1u64;
+        }
+
+        let mut all_pseudo_legal_moves: Vec<Move> = Vec::with_capacity(256);
+        let mut nodes = 0;
+        let n_moves: usize;
+
+        n_moves = self.generate_moves(&mut all_pseudo_legal_moves);
+        for i in 0..n_moves {
+            self.make(&all_pseudo_legal_moves[i]);
+            if !self.is_in_check(self.state_stack[self.ply_index].turn_color) {
+                nodes += self.perft(depth - 1);
+            }
+            self.unmake(&all_pseudo_legal_moves[i]);
+        }
+
+        return nodes;
     }
 }
 

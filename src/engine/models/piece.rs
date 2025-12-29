@@ -13,6 +13,22 @@ pub enum Piece {
     King,
 }
 
+impl TryFrom<i32> for Piece {
+    type Error = String;
+
+    fn try_from(value: i32) -> Result<Self, Self::Error> {
+        match value {
+            x if x == Piece::Pawn as i32 => Ok(Piece::Pawn),
+            x if x == Piece::Knight as i32 => Ok(Piece::Knight),
+            x if x == Piece::Bishop as i32 => Ok(Piece::Bishop),
+            x if x == Piece::Rook as i32 => Ok(Piece::Rook),
+            x if x == Piece::Queen as i32 => Ok(Piece::Queen),
+            x if x == Piece::King as i32 => Ok(Piece::King),
+            _ => Err("Invalid piece value".to_owned())
+        }
+    }
+}
+
 fn pop_1st_bit(bitboard: &mut u64) -> u32 {
     let pos = bitboard.trailing_zeros();
     *bitboard &= *bitboard - 1 as u64;  // Remove the rightmost bit

@@ -1,6 +1,7 @@
 use crate::engine::models::{board::{Color, 
     Square}, piece::Piece};
 
+#[derive(Clone, Copy)]
 pub struct State {
     // Fields that can't be altered during the move but can be altered between moves
     // Which means that we restore a position from these fields
