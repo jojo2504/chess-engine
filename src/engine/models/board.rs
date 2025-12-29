@@ -1,7 +1,9 @@
 #![warn(missing_docs, dead_code)]
 #![deny(unused_imports, unused_mut)]
 
-use std::fmt;
+use std::collections::HashMap;
+use std::{fmt};
+use std::str::FromStr;
 use serde::Deserialize;
 use crate::engine::models::{r#move::Move, piece::{Bishop, King, Knight, Pawn, Piece, Rook, SuperPiece}, state::State};
 
@@ -165,6 +167,29 @@ impl From<u64> for Square {
     }
 }
 
+fn square_from_str(square: &str) -> Result<Square, &str> {
+    if square.len() != 2 {
+        return Err("Invalid length for square.");
+    }
+
+    let file = square.chars().nth(0).expect("Cannot parse row."); // 'A'..'H'
+    let rank = square.chars().nth(1).expect("Cannot parse column."); // '1'..'8'
+
+    let file_index = match file {
+        'A'..='H' => (file as u8 - b'A') as u64,
+        _ => return Err("Unknown row detected."),
+    };
+
+    let rank_index = match rank {
+        '1'..='8' => (rank as u8 - b'1') as u64,
+        _ => return Err("Unknown column detected."),
+    };
+
+    let bit_index = rank_index * 8 + file_index;
+
+    Ok(unsafe { std::mem::transmute(1u64 << bit_index) })
+}
+
 /// ```txt
 /// |r|n|b|q|k|b|n|r|
 /// |p|p|p|p|p|p|p|p|
@@ -222,8 +247,109 @@ impl Chessboard {
         }
     }
     
-    pub fn from_fen(fen: &str) -> Self {
-        todo!()
+    pub fn from_fen(fen: &str) -> Result<Self, &str> {
+        // Initialize variables
+        let mut state = State::default();
+        let mut chessboard = Chessboard::new();
+
+        // Logic
+        let parts: Vec<&str> = fen.split(" ").collect();
+        if parts.len() != 6 {
+            return Err("Malformed FEN string.");
+        }
+
+        // Raw values
+        let positions_pieces = parts[0];
+        let turn_color = match parts[1] {
+            "w" => Color::White,
+            "b" => Color::Black,
+            _ => return Err("Invalid turn color detected.")
+        };
+        let castling_ability = parts[2];
+        let en_passant_square = parts[3].to_uppercase();
+        let half_moves = u32::from_str(parts[4]).map_err(|_| "Invalid half-moves detected.");
+        let full_moves = u32::from_str(parts[5]).map_err(|_| "Invalid full-moves detected.");
+
+        // Save into state
+        state.turn_color = turn_color;
+
+        match half_moves {
+            Ok(value) => {
+                state.half_move_clock = value;
+            },
+            Err(err) => {
+                return Err(err);
+            }
+        }
+        match full_moves {
+            Ok(value) => {
+                state.full_move_number = value;
+            },
+            Err(err) => {
+                return Err(err);
+            }
+        }
+
+        for x in castling_ability.chars() {
+            match x {
+                'K' => {
+                    state.can_white_king_castle = true;
+                },
+                'Q' => {
+                    state.can_white_queen_castle = true;
+                },
+                'k' => {
+                    state.can_black_king_castle = true;
+                },
+                'q' => {
+                    state.can_black_queen_castle = true;
+                },
+                _ => {}
+            }
+        }
+
+        // Parse En Passant part
+        //state.en_passant_square = Square::from(en_passant_square)
+
+        // Parsing piece positions
+        let mut raw_piece_to_type: HashMap<char, (Color, Piece)> = HashMap::new();
+        raw_piece_to_type.insert('P',(Color::White, Piece::Pawn));
+        raw_piece_to_type.insert('N',(Color::White, Piece::Knight));
+        raw_piece_to_type.insert('B',(Color::White, Piece::Bishop));
+        raw_piece_to_type.insert('R',(Color::White, Piece::Rook));
+        raw_piece_to_type.insert('Q',(Color::White, Piece::Queen));
+        raw_piece_to_type.insert('K',(Color::White, Piece::King));
+
+        raw_piece_to_type.insert('p',(Color::Black, Piece::Pawn));
+        raw_piece_to_type.insert('n',(Color::Black, Piece::Knight));
+        raw_piece_to_type.insert('b',(Color::Black, Piece::Bishop));
+        raw_piece_to_type.insert('r',(Color::Black, Piece::Rook));
+        raw_piece_to_type.insert('q',(Color::Black, Piece::Queen));
+        raw_piece_to_type.insert('k',(Color::Black, Piece::King));
+
+        let ranks: Vec<&str> = positions_pieces.split("/").collect();
+        let mut overall_index_square = 0;
+        if ranks.len() != 8 {
+            return Err("Invalid position information detected.");
+        }
+        for rank in ranks {
+            for i in 0..rank.len() - 1 {
+                let letter = rank.chars().nth(i).expect("Out-of-bounds error when parsing rank.");
+                if letter.is_numeric() {
+                    let n_letter = letter.to_digit(10).unwrap();
+                    overall_index_square += n_letter;
+                } else if let Some((_color, _piece)) = raw_piece_to_type.get(&letter) {
+                    let index: usize = 63 as usize - overall_index_square as usize;
+                    chessboard.toggle_piece(&mut chessboard.get_piece(*_color, *_piece), 1 << index, *_color);
+                    overall_index_square += 1;
+                }
+            }
+        }
+
+        // Set all attributes of chessboard
+        chessboard.state = state.clone();
+
+        Ok(chessboard)
     }
 
     #[inline]
