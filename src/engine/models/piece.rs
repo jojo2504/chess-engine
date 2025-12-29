@@ -1,6 +1,6 @@
 use std::sync::OnceLock;
 
-use crate::engine::models::board::{Chessboard, Color, File, Rank};
+use crate::engine::{magic::magic::Magic, models::board::{Board, Chessboard, Color, File, Rank}};
 
 /// Quick enum to match pieces
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -12,6 +12,32 @@ pub enum Piece {
     Queen,
     King,
 }
+
+fn pop_1st_bit(bitboard: &mut u64) -> u32 {
+    let pos = bitboard.trailing_zeros();
+    *bitboard &= *bitboard - 1 as u64;  // Remove the rightmost bit
+    return pos;
+}
+
+fn transform(bitboard: u64, magic: u64, bits: i32) -> i32 {
+    ((bitboard * magic) >> (64 - bits)) as i32
+}
+
+fn index_to_bitboard(index: i32, bits: u32, mut m: u64) -> u64 {
+    let mut result = 0u64;
+    let mut j;
+    for i in 0..bits {
+        j = pop_1st_bit(&mut m);
+        if (index & (1 << i)) != 0 {
+            result |= 1u64 << j;
+        }
+    }
+    return result;
+}
+
+/*
+    TELEPORTING PIECES
+*/
 
 pub struct Pawn {
     pawn_attack_masks: [u64; 128]
@@ -93,7 +119,7 @@ pub struct Knight {
 }
 
 impl Knight {
-    pub fn get_move_mask() -> [u64; 64] {
+    pub fn get_move_masks() -> [u64; 64] {
         knight().knight_move_masks
     }
 
@@ -142,21 +168,6 @@ fn knight() -> &'static Knight {
     })
 }
 
-pub struct Bishop;
-
-impl Bishop {
-}
-
-pub struct Rook;
-
-impl Rook {
-}
-
-pub struct Queen;
-
-impl Queen {
-}
-
 #[repr(u64)]
 enum CastlingMasks {
     WhiteKingSideEmpty = (1u64 << 5) | (1u64 << 6), // F1, G1
@@ -177,7 +188,7 @@ pub struct King {
 }
 
 impl King {
-    pub fn get_move_mask() -> [u64; 64] {
+    pub fn get_move_masks() -> [u64; 64] {
         king().king_move_masks
     }
 
@@ -193,27 +204,27 @@ impl King {
         match turn_color {
             Color::White => {
                 if chessboard.state.can_white_king_castle &&
-                !chessboard.are_any_squares_occupied(CastlingMasks::WhiteKingSideEmpty as u64) &&
-                !chessboard.are_any_squares_attacked_by_color(CastlingMasks::WhiteKingSideAttack as u64, Color::Black) {
+                !chessboard.any_occupied_square(CastlingMasks::WhiteKingSideEmpty as u64) &&
+                !chessboard.any_attacked_squared_by_side(CastlingMasks::WhiteKingSideAttack as u64, Color::Black) {
                     castle_king = location << 2;
                 }
 
                 if chessboard.state.can_white_queen_castle &&
-                !chessboard.are_any_squares_occupied(CastlingMasks::WhiteQueenSideEmpty as u64) &&
-                !chessboard.are_any_squares_attacked_by_color(CastlingMasks::WhiteQueenSideAttack as u64, Color::Black) {
+                !chessboard.any_occupied_square(CastlingMasks::WhiteQueenSideEmpty as u64) &&
+                !chessboard.any_attacked_squared_by_side(CastlingMasks::WhiteQueenSideAttack as u64, Color::Black) {
                     castle_queen = location >> 2;
                 }
             },
             Color::Black => {
                 if chessboard.state.can_black_king_castle &&
-                !chessboard.are_any_squares_occupied(CastlingMasks::BlackKingSideEmpty as u64) &&
-                !chessboard.are_any_squares_attacked_by_color(CastlingMasks::BlackKingSideAttack as u64, Color::White) {
+                !chessboard.any_occupied_square(CastlingMasks::BlackKingSideEmpty as u64) &&
+                !chessboard.any_attacked_squared_by_side(CastlingMasks::BlackKingSideAttack as u64, Color::White) {
                     castle_king = location << 2;
                 }
                 
                 if chessboard.state.can_black_queen_castle &&
-                !chessboard.are_any_squares_occupied(CastlingMasks::BlackQueenSideEmpty as u64) &&
-                !chessboard.are_any_squares_attacked_by_color(CastlingMasks::BlackQueenSideAttack as u64, Color::White) {
+                !chessboard.any_occupied_square(CastlingMasks::BlackQueenSideEmpty as u64) &&
+                !chessboard.any_attacked_squared_by_side(CastlingMasks::BlackQueenSideAttack as u64, Color::White) {
                     castle_queen = location >> 2;
                 }
             }
@@ -251,4 +262,253 @@ fn king() -> &'static King {
 
         king
     })
+}
+
+/*
+    SLIDING PIECES
+*/
+
+pub struct Bishop {
+    bishop_blocker_mask: [u64; 64],
+    bishop_magic_table: Vec<Magic>,
+    magic_bishop_attacks: [[u64; 4096]; 64] 
+}
+    
+impl Bishop {
+    pub fn compute_possible_moves(location: u64, chessboard: &Chessboard, turn_color: Color) -> u64 {
+        let own_side = chessboard.get_color_pieces(turn_color);
+        Bishop::compute_possible_attacks(location, chessboard) & !own_side
+    }
+
+    pub fn compute_possible_attacks(location: u64, chessboard: &Chessboard) -> u64 {
+        let sq: usize = location.trailing_zeros() as usize;
+        let mut occ = chessboard.get_all_pieces();
+
+        occ &= bishop().bishop_magic_table[sq].mask;
+        occ *= bishop().bishop_magic_table[sq].magic_number;
+        occ >>= 52; //64-12
+
+        return bishop().magic_bishop_attacks[sq][occ as usize];
+    }
+    
+    fn batt(square: i32, block: u64) -> u64 {
+        let mut result: u64 = 0u64;
+        let rk = square / 8;
+        let fl = square % 8;
+        let mut r: i32;
+        let mut f: i32;
+
+        r = rk + 1;
+        f = fl + 1;
+        while r <= 7 && f <= 7 {
+            result |= 1u64 << (f + r * 8);
+            if (block & (1u64 << (f + r * 8))) != 0 { break; }
+            r += 1;
+            f += 1;
+        }
+
+        r = rk + 1;
+        f = fl - 1;
+        while r <= 7 && f >= 0 {
+            result |= 1u64 << (f + r * 8);
+            if (block & (1u64 << (f + r * 8))) != 0 { break; }
+            r += 1;
+            f -= 1;
+        }
+
+        r = rk - 1;
+        f = fl + 1;
+        while r >= 0 && f <= 7 {
+            result |= 1u64 << (f + r * 8);
+            if (block & (1u64 << (f + r * 8))) != 0 { break; }
+            r -= 1;
+            f += 1;
+        }
+
+        r = rk - 1;
+        f = fl - 1;
+        while r >= 0 && f >= 0 {
+            result |= 1u64 << (f + r * 8);
+            if (block & (1u64 << (f + r * 8))) != 0 { break; }
+            r -= 1;
+            f -= 1;
+        }
+
+        return result;
+    }
+}
+
+fn bishop() -> &'static Bishop {
+    static BISHOP: OnceLock<Bishop> = OnceLock::new();
+    BISHOP.get_or_init(|| {
+        let mut bishop = Bishop {
+            bishop_blocker_mask: [0; 64],
+            bishop_magic_table: Magic::load_magic_table("src/engine/magic/BMagicTable.json").expect("bishop magic table should be found here"),
+            magic_bishop_attacks: [[0; 4096]; 64] 
+        };
+
+        // init blocker mask
+        for sq in 0..64 {
+            let mut result = 0u64;
+            let rk = sq / 8;
+            let fl = sq % 8;
+
+            for d in 1..7 {
+                if rk + d <= 6 && fl + d <= 6 {
+                    result |= 1u64 << ((rk + d) * 8 + fl + d);
+                }
+                if rk + d <= 6 && fl >= d + 1 {
+                    result |= 1u64 << ((rk + d) * 8 + fl - d);
+                }
+                if rk >= d + 1 && fl + d <= 6 {
+                    result |= 1u64 << ((rk - d) * 8 + fl + d);
+                }
+                if rk >= d + 1 && fl >= d + 1 {
+                    result |= 1u64 << ((rk - d) * 8 + fl - d);
+                }
+            }
+            bishop.bishop_blocker_mask[sq] = result;
+        }
+
+        // init bishop attacks
+        for sq in 0..64 {
+            let mask = bishop.bishop_magic_table[sq].mask;
+            let relevant_bits_number = mask.count_ones();
+
+            for i in 0..(1 << relevant_bits_number) {
+                let occupancy = index_to_bitboard(i, relevant_bits_number, mask);
+                let attacks = Bishop::batt(sq as i32, occupancy);
+
+                // Transform occupancy to magic index
+                let masked_occ = occupancy & mask;
+                let magic_index = transform(masked_occ, bishop.bishop_magic_table[sq].magic_number, 12);
+
+                // Store the attacks in your lookup table
+                bishop.magic_bishop_attacks[sq][magic_index as usize] = attacks;
+            }
+        }
+
+        bishop
+    })
+}
+
+pub struct Rook {
+    rook_blocker_mask: [u64; 64],
+    rook_magic_table: Vec<Magic>,
+    magic_rook_attacks: [[u64; 4096]; 64] 
+}
+    
+impl Rook {
+    pub const WHITE_CASTLING_MASK: u64 = 0x81;  // A1 | H1
+    pub const BLACK_CASTLING_MASK: u64 = 0x8100000000000000; // A8 | H8
+
+    pub fn compute_possible_moves(location: u64, chessboard: &Chessboard, turn_color: Color) -> u64 {
+        let own_side = chessboard.get_color_pieces(turn_color);
+        Rook::compute_possible_attacks(location, chessboard) & !own_side
+    }
+
+    pub fn compute_possible_attacks(location: u64, chessboard: &Chessboard) -> u64 {
+        let sq: usize = location.trailing_zeros() as usize;
+        let mut occ = chessboard.get_all_pieces();
+
+        occ &= rook().rook_magic_table[sq].mask;
+        occ *= rook().rook_magic_table[sq].magic_number;
+        occ >>= 52; //64-12
+
+        return rook().magic_rook_attacks[sq][occ as usize];
+    }
+    
+    fn ratt(square: i32, block: u64) -> u64 {
+        let mut result: u64 = 0u64;
+        let rk = square / 8;
+        let fl = square % 8;
+        let mut r: i32;
+        let mut f: i32;
+
+        r = rk + 1;
+        while r <= 7 {
+            result |= 1u64 << (fl + r * 8);
+            if (block & (1u64 << (fl + r * 8))) != 0 { break; }
+            r += 1;
+        }
+        r = rk - 1;
+        while r >= 0 {
+            result |= 1u64 << (fl + r * 8);
+            if (block & (1u64 << (fl + r * 8))) != 0 { break; }
+            r -= 1;
+        }
+        f = fl + 1;
+        while f <= 7 {
+            result |= 1u64 << (f + rk * 8);
+            if (block & (1u64 << (f + rk * 8))) != 0 { break; }
+            f += 1;
+        }
+        f = fl - 1;
+        while f >= 0 {
+            result |= 1u64 << (f + rk * 8);
+            if (block & (1u64 << (f + rk * 8))) != 0 { break; }
+            f -= 1;
+        }
+        return result;
+    }
+}
+
+fn rook() -> &'static Rook {
+    static ROOK: OnceLock<Rook> = OnceLock::new();
+    ROOK.get_or_init(|| {
+        let mut rook = Rook {
+            rook_blocker_mask: [0; 64],
+            rook_magic_table: Magic::load_magic_table("src/engine/magic/RMagicTable.json").expect("rook magic table should be found here"),
+            magic_rook_attacks: [[0; 4096]; 64] 
+        };
+
+        // init blocker mask
+        for i in 0..64 {
+            let file_index: i32 = i % 8;
+            let rank_index: i32 = i / 8;
+
+            let mut blocker_mask: u64 = 0u64;
+            blocker_mask |= File::try_from(file_index).unwrap().mask();
+            blocker_mask ^= Rank::try_from(rank_index).unwrap().mask();
+
+            // remove the 4 corners
+            blocker_mask &= Board::get_corner_clear();
+
+            // checks if not on border
+            if ((1u64 << i) & Board::get_all_border_mask()) != 0 {
+                blocker_mask &= Board::get_all_border_clear();
+            }
+
+            rook.rook_blocker_mask[i as usize] = blocker_mask;
+        }
+
+        // init rook attacks
+        for sq in 0..64 {
+            let mask = rook.rook_magic_table[sq].mask;
+            let relevant_bits_number = mask.count_ones();
+
+            for i in 0..(1 << relevant_bits_number) {
+                let occupancy = index_to_bitboard(i, relevant_bits_number, mask);
+                let attacks = Rook::ratt(sq as i32, occupancy);
+
+                // Transform occupancy to magic index
+                let masked_occ = occupancy & mask;
+                let magic_index = transform(masked_occ, rook.rook_magic_table[sq].magic_number, 12);
+
+                // Store the attacks in your lookup table
+                rook.magic_rook_attacks[sq][magic_index as usize] = attacks;
+            }
+        }
+
+        rook
+    })
+}
+
+pub struct Queen;
+
+impl Queen {
+    pub fn compute_possible_moves(location: u64, chessboard: &Chessboard, turncolor: Color) -> u64 {
+        Rook::compute_possible_moves(location, chessboard, turncolor) | 
+        Bishop::compute_possible_moves(location, chessboard, turncolor)
+    }
 }

@@ -1,5 +1,7 @@
 use std::{collections::HashMap, fmt};
 
+use serde::Deserialize;
+
 use crate::engine::models::{r#move::Move, piece::{King, Knight, Pawn, Piece}, state::State};
 
 /// Represents a board rank, or horizontal line. `A1..H1`
@@ -33,6 +35,24 @@ impl Rank {
             Rank6 => 0xFFFF00FFFFFFFFFF,
             Rank7 => 0xFF00FFFFFFFFFFFF,
             Rank8 => 0x00FFFFFFFFFFFFFF,
+        }
+    }
+}
+
+impl TryFrom<i32> for Rank {
+    type Error = String;
+
+    fn try_from(value: i32) -> Result<Self, Self::Error> {
+        match value {
+            x if x == Rank::Rank1 as i32 => Ok(Rank::Rank1),
+            x if x == Rank::Rank2 as i32 => Ok(Rank::Rank2),
+            x if x == Rank::Rank3 as i32 => Ok(Rank::Rank3),
+            x if x == Rank::Rank4 as i32 => Ok(Rank::Rank4),
+            x if x == Rank::Rank5 as i32 => Ok(Rank::Rank5),
+            x if x == Rank::Rank6 as i32 => Ok(Rank::Rank6),
+            x if x == Rank::Rank7 as i32 => Ok(Rank::Rank7),
+            x if x == Rank::Rank8 as i32 => Ok(Rank::Rank8),
+            _ => Err("Invalid file value".to_owned())
         }
     }
 }
@@ -72,6 +92,24 @@ impl File {
     }
 }
 
+impl TryFrom<i32> for File {
+    type Error = String;
+
+    fn try_from(value: i32) -> Result<Self, Self::Error> {
+        match value {
+            x if x == File::FileA as i32 => Ok(File::FileA),
+            x if x == File::FileB as i32 => Ok(File::FileB),
+            x if x == File::FileC as i32 => Ok(File::FileC),
+            x if x == File::FileD as i32 => Ok(File::FileD),
+            x if x == File::FileE as i32 => Ok(File::FileE),
+            x if x == File::FileF as i32 => Ok(File::FileF),
+            x if x == File::FileG as i32 => Ok(File::FileG),
+            x if x == File::FileH as i32 => Ok(File::FileH),
+            _ => Err("Invalid file value".to_owned())
+        }
+    }
+}
+
 /// Reprensents one of the two piece's color
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Color {
@@ -104,7 +142,7 @@ impl Board {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy, Deserialize)]
 #[repr(u64)]
 pub enum Square {
     A1 = 1u64 << 0, B1 = 1u64 << 1, C1 = 1u64 << 2, D1 = 1u64 << 3, E1 = 1u64 << 4, F1 = 1u64 << 5, G1 = 1u64 << 6, H1 = 1u64 << 7,
@@ -199,7 +237,7 @@ impl Chessboard {
         
         // Check knight attacks
         let knights = self.get_piece(attacking_side, Piece::Knight);
-        if (Knight::get_move_mask()[square_index] & knights) != 0 {
+        if (Knight::get_move_masks()[square_index] & knights) != 0 {
             return true;
         }
 
@@ -233,15 +271,16 @@ impl Chessboard {
 
         // Check king attacks
         let king = self.get_piece(attacking_side, Piece::King);
-        if (King::get_move_mask()[square_index] & king) != 0 {
+        if (King::get_move_masks()[square_index] & king) != 0 {
             return true;
         }
 
         false
     }
 
+    /// Checks if any given squares (reprensented as 1s in the `squares: u64`) is attacked by the `attacking_side` pieces.
     #[inline]
-    pub fn are_any_squares_attacked_by_color(&self, mut squares: u64, attacking_side: Color) -> bool {
+    pub fn any_attacked_squared_by_side(&self, mut squares: u64, attacking_side: Color) -> bool {
         while squares != 0 {
             let square = 1u64 << squares.trailing_zeros();
             squares &= squares - 1;
@@ -252,8 +291,9 @@ impl Chessboard {
         false
     }
 
+    /// Checks is any of the squares (reprensented as 1s in the `squares: u64`) has a piece on it.
     #[inline]
-    pub fn are_any_squares_occupied(&self, squares: u64) -> bool {
+    pub fn any_occupied_square(&self, squares: u64) -> bool {
         (squares & self.get_all_pieces()) != 0
     }
 

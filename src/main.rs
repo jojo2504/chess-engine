@@ -1,9 +1,11 @@
 use std::env;
 
-use chess_engine::engine::models::board::Board;
+use chess_engine::engine::{magic::magic::Magic, models::board::Board};
 
-fn main() {
+fn main() -> anyhow::Result<()> {
     // let args: Vec<String> = env::args().collect();
 
-    println!("{:?}", Board::get_all_border_clear())
+    let a = Magic::load_magic_table("/home/jojo/Documents/rust/chess-engine/src/engine/magic/BMagicTable.json")?;
+    println!("{:?}", a);
+    Ok(())
 }
