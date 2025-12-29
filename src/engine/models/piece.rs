@@ -512,3 +512,35 @@ impl Queen {
         Bishop::compute_possible_moves(location, chessboard, turncolor)
     }
 }
+
+pub struct SuperPiece {
+    rook_attacks: [u64; 64],
+    bishop_attacks: [u64; 64]
+}
+
+impl SuperPiece {
+    pub fn get_rook_attacks() -> [u64; 64] {
+        super_piece().rook_attacks
+    }
+
+    pub fn get_bishop_attacks() -> [u64; 64] {
+        super_piece().bishop_attacks
+    }
+}
+
+fn super_piece() -> &'static SuperPiece {
+    static SUPER_PIECE: OnceLock<SuperPiece> = OnceLock::new();
+    SUPER_PIECE.get_or_init(|| {
+        let mut super_piece = SuperPiece {
+            rook_attacks: [0; 64],
+            bishop_attacks: [0; 64],
+        };
+
+        for i in 0..64 {
+            super_piece.rook_attacks[i] = Rook::ratt(i as i32, 0u64);
+            super_piece.bishop_attacks[i] = Bishop::batt(i as i32, 0u64);
+        }
+
+        super_piece
+    })
+}

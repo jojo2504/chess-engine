@@ -2,7 +2,7 @@ use std::{collections::HashMap, fmt};
 
 use serde::Deserialize;
 
-use crate::engine::models::{r#move::Move, piece::{King, Knight, Pawn, Piece}, state::State};
+use crate::engine::models::{r#move::Move, piece::{Bishop, King, Knight, Pawn, Piece, Rook, SuperPiece}, state::State};
 
 /// Represents a board rank, or horizontal line. `A1..H1`
 pub enum Rank {
@@ -241,23 +241,21 @@ impl Chessboard {
             return true;
         }
 
-        todo!("need to implement rook and queen attacks");
         // Check rook and queen attacks (straight lines)
-        // let rooks_queens = self.get_piece(attacking_side, Piece::Queen) | 
-        //                   self.get_piece(attacking_side, Piece::Rook);
-        // if ((Self::get_rook_attack_mask(square_index) & rooks_queens) != 0)
-        //     && (self.compute_rook_attacks(square, attacking_side) & rooks_queens) != 0 {
-        //     return true;
-        // }
+        let rooks_queens = self.get_piece(attacking_side, Piece::Queen) | 
+                          self.get_piece(attacking_side, Piece::Rook);
+        if ((SuperPiece::get_rook_attacks()[square_index] & rooks_queens) != 0)
+            && (Rook::compute_possible_attacks(square, self) & rooks_queens) != 0 {
+            return true;
+        }
             
-        todo!("need to implement bishop and queen attacks");
-        // // Check bishop and queen attacks (diagonal)
-        // let bishops_queens = self.get_piece(attacking_side, Piece::Queen) |
-        //                     self.get_piece(attacking_side, Piece::Bishop);
-        // if ((Self::get_bishop_attack_mask(square_index) & bishops_queens) != 0)
-        //     && ((self.compute_bishop_attacks(square, attacking_side) & bishops_queens) != 0) {
-        //     return true;
-        // }
+        // Check bishop and queen attacks (diagonal)
+        let bishops_queens = self.get_piece(attacking_side, Piece::Queen) |
+                            self.get_piece(attacking_side, Piece::Bishop);
+        if ((SuperPiece::get_bishop_attacks()[square_index] & bishops_queens) != 0)
+            && ((Bishop::compute_possible_attacks(square, self) & bishops_queens) != 0) {
+            return true;
+        }
 
         // Check pawn attacks
         let pawns = self.get_piece(attacking_side, Piece::Pawn);
