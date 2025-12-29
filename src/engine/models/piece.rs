@@ -286,7 +286,7 @@ impl Bishop {
 
         occ &= bishop().bishop_magic_table[sq].mask;
         occ *= bishop().bishop_magic_table[sq].magic_number;
-        occ >>= 52; //64-12
+        occ >>= 55; //64-9
 
         return bishop().magic_bishop_attacks[sq][occ as usize];
     }
