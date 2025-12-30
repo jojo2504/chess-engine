@@ -538,11 +538,12 @@ impl Default for Chessboard {
             white_pieces: 0u64,
             black_pieces: 0u64,
             state: State::default(),
-            state_stack: vec![],
+            state_stack: Vec::with_capacity(8191),
             ply_index: 0,
         }
     }
 }
+
 impl fmt::Display for Chessboard {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         todo!()
