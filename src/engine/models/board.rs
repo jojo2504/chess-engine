@@ -3,7 +3,7 @@
 #![deny(clippy::unwrap_used, clippy::expect_used)]
 
 use std::collections::HashMap;
-use std::{fmt};
+use std::fmt;
 use std::str::FromStr;
 use serde::Deserialize;
 use crate::engine::models::{r#move::Move, piece::{Bishop, King, Knight, Pawn, Piece, Rook, SuperPiece}, state::State};
@@ -40,6 +40,20 @@ impl Rank {
             Rank6 => 0xFFFF00FFFFFFFFFF,
             Rank7 => 0xFF00FFFFFFFFFFFF,
             Rank8 => 0x00FFFFFFFFFFFFFF,
+        }
+    }
+
+    pub fn from_i32_unchecked(value: i32) -> Self {
+        match value {
+            x if x == Rank::Rank1 as i32 => Rank::Rank1,
+            x if x == Rank::Rank2 as i32 => Rank::Rank2,
+            x if x == Rank::Rank3 as i32 => Rank::Rank3,
+            x if x == Rank::Rank4 as i32 => Rank::Rank4,
+            x if x == Rank::Rank5 as i32 => Rank::Rank5,
+            x if x == Rank::Rank6 as i32 => Rank::Rank6,
+            x if x == Rank::Rank7 as i32 => Rank::Rank7,
+            x if x == Rank::Rank8 as i32 => Rank::Rank8,
+            _ => unreachable!("Invalid file value")
         }
     }
 }
@@ -94,6 +108,20 @@ impl File {
             FileF => 0xDFDFDFDFDFDFDFDF,
             FileG => 0xBFBFBFBFBFBFBFBF,
             FileH => 0x7F7F7F7F7F7F7F7F,
+        }
+    }
+
+    pub fn from_i32_unchecked(value: i32) -> Self {
+        match value {
+            x if x == File::FileA as i32 => File::FileA,
+            x if x == File::FileB as i32 => File::FileB,
+            x if x == File::FileC as i32 => File::FileC,
+            x if x == File::FileD as i32 => File::FileD,
+            x if x == File::FileE as i32 => File::FileE,
+            x if x == File::FileF as i32 => File::FileF,
+            x if x == File::FileG as i32 => File::FileG,
+            x if x == File::FileH as i32 => File::FileH,
+            _ => unreachable!("Invalid file value")
         }
     }
 }
@@ -162,19 +190,19 @@ pub enum Square {
 }
 
 impl Square {
-    // Get bitboard mask for this square
+    /// Get bitboard mask for this square
     pub const fn bitboard(self) -> u64 {
         1u64 << (self as u64)
     }
     
-    // Get file (0-7)
-    pub const fn file(self) -> u8 {
-        (self as u8) % 8
+    /// Get file
+    pub fn file(self) -> File {
+        File::from_i32_unchecked(self as i32 % 8)
     }
     
-    // Get rank (0-7)
-    pub const fn rank(self) -> u8 {
-        (self as u8) / 8
+    /// Get rank
+    pub fn rank(self) -> Rank {
+        Rank::from_i32_unchecked(self as i32 % 8)
     }
 }
 
@@ -233,23 +261,35 @@ impl FromStr for Square {
 /// |R|N|B|Q|K|B|N|R|
 /// ```
 pub struct Chessboard {
+    /// The 12 bitboards for each piece, starting with white then black, same order as [Piece].
     pub pieces: [u64; 12],
+    /// Bitboard representing the position of all white pieces.
     pub white_pieces: u64,
+    /// Bitboard representing the position of all black pieces.
     pub black_pieces: u64,
 
+    /// Current state of the chessboard.
     pub state: State,
+    /// Used to keep track of all previous and current states of the chessboard. 
     pub state_stack: Vec<State>,
+    /// Used to index the state_stack, representing the current ply, equivalent to a half-move.
     pub ply_index: usize
 }
 
 impl Chessboard {
-    /// Default chessboard's constructor initilized with the default fen value, or classic starting position 
+    /// Default chessboard's constructor initialized with the default fen value, or classic starting position.
+    /// 
+    /// This will call [Chessboard::from_fen] with:
+    /// ```rust
+    /// let fen: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+    /// ```
     #[allow(clippy::unwrap_used, reason="The default fen will always works")]
     pub fn new() -> Self {
         let fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
         Self::from_fen(fen).unwrap()
     }
     
+    /// Chessboard's constructor initialized with a custom fen value.
     pub fn from_fen(fen: &str) -> Result<Self, &str> {
         // Initialize variables
         let mut chessboard = Chessboard::default();
@@ -354,16 +394,23 @@ impl Chessboard {
         Ok(chessboard)
     }
 
+    /// Returns the bitboard corresponding to the searched piece.
+    /// 
+    /// For example, `self.get_piece(Color::White, Piece::Pawn)` returns the bitboard with all white pawns.
     #[inline]
     pub fn get_piece(&self, color: Color, piece: Piece) -> u64 {
         self.pieces[color as usize * 6 + piece as usize]
     }
     
+    /// Returns a bitboard with all pieces on chessboard.
     #[inline]
     pub fn get_all_pieces(&self) -> u64 {
         self.white_pieces | self.black_pieces
     }
 
+    /// Returns a bitboard with all pieces from a color.
+    /// 
+    /// For Example, calling `self.get_color_pieces(Color::White)` returns the bitboard with all white pieces.
     #[inline]
     pub fn get_color_pieces(&self, turn_color: Color) -> u64 {
         match turn_color {
@@ -371,16 +418,17 @@ impl Chessboard {
             Color::Black => self.black_pieces,
         }
     }
-  
+    
+    // ? Not sure if we keep it
+    /// Quick checks before expensive castling computation
     pub fn should_check_castling(&self) -> bool {
-        // Quick checks before expensive castling computation
         return (self.state.turn_color == Color::White && (self.state.can_white_king_castle || self.state.can_black_queen_castle))
             || (self.state.turn_color == Color::Black && (self.state.can_white_king_castle || self.state.can_black_queen_castle));
     }
 
     /// Checks if a given square is attacked by any other pieces of the opponant color.
     /// 
-    /// Used by [Chessboard::any_attacked_squared_by_side]
+    /// Used by [Chessboard::any_attacked_squared_by_side].
     fn is_square_attacked_by_color(&self, square: u64, attacking_side: Color) -> bool {
         let square_index: usize = square.trailing_zeros() as usize;
         
@@ -393,16 +441,16 @@ impl Chessboard {
         // Check rook and queen attacks (straight lines)
         let rooks_queens = self.get_piece(attacking_side, Piece::Queen) | 
                           self.get_piece(attacking_side, Piece::Rook);
-        if ((SuperPiece::get_rook_attacks()[square_index] & rooks_queens) != 0)
-            && (Rook::compute_possible_attacks(square, self) & rooks_queens) != 0 {
+        if ((SuperPiece::rook_rays()[square_index] & rooks_queens) != 0)
+            && (Rook::rays(square, self) & rooks_queens) != 0 {
             return true;
         }
             
         // Check bishop and queen attacks (diagonal)
         let bishops_queens = self.get_piece(attacking_side, Piece::Queen) |
                             self.get_piece(attacking_side, Piece::Bishop);
-        if ((SuperPiece::get_bishop_attacks()[square_index] & bishops_queens) != 0)
-            && ((Bishop::compute_possible_attacks(square, self) & bishops_queens) != 0) {
+        if ((SuperPiece::bishop_rays()[square_index] & bishops_queens) != 0)
+            && ((Bishop::rays(square, self) & bishops_queens) != 0) {
             return true;
         }
 
@@ -448,20 +496,22 @@ impl Chessboard {
 
     /// Use this method when required to "slide" a piece, meaning a piece leaving its starting square and ending on its destination square.
     /// 
-    /// You should also combine it with [Move::toggle_piece()] when capturing pieces.
+    /// You should also combine it with [Chessboard::toggle_piece] when capturing pieces.
     /// 
     /// # Exemple 
     /// ```rust
-    /// use chess_engine::engine::models::r#move::Move;
+    /// use chess_engine::engine::models::board::{Chessboard, Square, Color};
+    /// use chess_engine::engine::models::piece::Piece;
     /// 
-    /// let chessboard = Chessboard::new();
-    /// // Move a bishop to e4
-    /// Move::slide_piece();
-    /// // Remove the captured piece
-    /// Move::toggle_piece(...);
+    /// let mut chessboard = Chessboard::new();
+    /// // Move a pawn from A2 to A3
+    /// chessboard.slide_piece(&mut chessboard.get_piece(Color::White, Piece::Pawn), Square::A2.bitboard(), Square::A3.bitboard(), Color::White);
+    /// // Remove a captured piece (random square in this example)
+    /// chessboard.toggle_piece(&mut chessboard.get_piece(Color::White, Piece::Pawn), Square::A2.bitboard(), Color::White);
     /// ```
     #[inline]
     pub fn slide_piece(&mut self, piece_bitboard: &mut u64, from: u64, to: u64, side: Color) {
+        
         *piece_bitboard ^= from ^ to;
         match side {
             Color::White => self.white_pieces ^= from ^ to,

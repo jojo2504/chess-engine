@@ -11,9 +11,9 @@ use crate::engine::{magic::magic::Magic, models::board::{Board, Chessboard, Colo
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Piece {
     Pawn,
+    Rook,
     Knight,
     Bishop,
-    Rook,
     Queen,
     King,
 }
@@ -24,9 +24,9 @@ impl TryFrom<i32> for Piece {
     fn try_from(value: i32) -> Result<Self, Self::Error> {
         match value {
             x if x == Piece::Pawn as i32 => Ok(Piece::Pawn),
+            x if x == Piece::Rook as i32 => Ok(Piece::Rook),
             x if x == Piece::Knight as i32 => Ok(Piece::Knight),
             x if x == Piece::Bishop as i32 => Ok(Piece::Bishop),
-            x if x == Piece::Rook as i32 => Ok(Piece::Rook),
             x if x == Piece::Queen as i32 => Ok(Piece::Queen),
             x if x == Piece::King as i32 => Ok(Piece::King),
             _ => Err("Invalid piece value".to_owned())
@@ -296,12 +296,16 @@ pub struct Bishop {
 }
     
 impl Bishop {
+    /// From a given bishop `location`, `turn_color` and `chessboard`, returns a bitboard representing all the valid squares it can move to
+    /// without checking if it's really valid (is pseudolegal move) or capturing a piece yet. Note that it may overlap with the opponant
+    /// all pieces bitboard because of possible captures.
     pub fn compute_possible_moves(location: u64, chessboard: &Chessboard, turn_color: Color) -> u64 {
         let own_side = chessboard.get_color_pieces(turn_color);
-        Bishop::compute_possible_attacks(location, chessboard) & !own_side
+        Bishop::rays(location, chessboard) & !own_side
     }
 
-    pub fn compute_possible_attacks(location: u64, chessboard: &Chessboard) -> u64 {
+    /// Using the magic bitboard `table` and very precise operations, returns all the `rays` of the bishop. Note that it's not checking for any side yet. 
+    pub fn rays(location: u64, chessboard: &Chessboard) -> u64 {
         let sq: usize = location.trailing_zeros() as usize;
         let mut occ = chessboard.get_all_pieces();
 
@@ -423,12 +427,16 @@ impl Rook {
     pub const WHITE_CASTLING_MASK: u64 = 0x81;  // A1 | H1
     pub const BLACK_CASTLING_MASK: u64 = 0x8100000000000000; // A8 | H8
 
+    /// From a given rook `location`, `turn_color` and `chessboard`, returns a bitboard representing all the valid squares it can move to
+    /// without checking if it's really valid (is pseudolegal move) or capturing a piece yet. Note that it may overlap with the opponant
+    /// all pieces bitboard because of possible captures.
     pub fn compute_possible_moves(location: u64, chessboard: &Chessboard, turn_color: Color) -> u64 {
         let own_side = chessboard.get_color_pieces(turn_color);
-        Rook::compute_possible_attacks(location, chessboard) & !own_side
+        Rook::rays(location, chessboard) & !own_side
     }
 
-    pub fn compute_possible_attacks(location: u64, chessboard: &Chessboard) -> u64 {
+    /// Using the magic bitboard `table` and very precise operations, returns all the `rays` of the rook. Note that it's not checking for any side yet. 
+    pub fn rays(location: u64, chessboard: &Chessboard) -> u64 {
         let sq: usize = location.trailing_zeros() as usize;
         let mut occ = chessboard.get_all_pieces();
 
@@ -534,18 +542,21 @@ impl Queen {
     }
 }
 
+/// This special piece is used to help checking if a square is attacked by any piece, by casting its attack directly to them
 pub struct SuperPiece {
-    rook_attacks: [u64; 64],
-    bishop_attacks: [u64; 64]
+    rook_rays: [u64; 64],
+    bishop_rays: [u64; 64]
 }
 
 impl SuperPiece {
-    pub fn get_rook_attacks() -> [u64; 64] {
-        super_piece().rook_attacks
+    /// Returns an array of all rook rays for each square, simulating am empty board.
+    pub fn rook_rays() -> [u64; 64] {
+        super_piece().rook_rays
     }
-
-    pub fn get_bishop_attacks() -> [u64; 64] {
-        super_piece().bishop_attacks
+    
+    /// Returns an array of all bishop rays for each square, simulating am empty board.
+    pub fn bishop_rays() -> [u64; 64] {
+        super_piece().bishop_rays
     }
 }
 
@@ -553,13 +564,13 @@ fn super_piece() -> &'static SuperPiece {
     static SUPER_PIECE: OnceLock<SuperPiece> = OnceLock::new();
     SUPER_PIECE.get_or_init(|| {
         let mut super_piece = SuperPiece {
-            rook_attacks: [0; 64],
-            bishop_attacks: [0; 64],
+            rook_rays: [0; 64],
+            bishop_rays: [0; 64],
         };
 
         for i in 0..64 {
-            super_piece.rook_attacks[i] = Rook::ratt(i as i32, 0u64);
-            super_piece.bishop_attacks[i] = Bishop::batt(i as i32, 0u64);
+            super_piece.rook_rays[i] = Rook::ratt(i as i32, 0u64);
+            super_piece.bishop_rays[i] = Bishop::batt(i as i32, 0u64);
         }
 
         super_piece
