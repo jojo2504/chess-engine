@@ -36,8 +36,8 @@ impl TryFrom<i32> for Piece {
 
 fn pop_1st_bit(bitboard: &mut u64) -> u32 {
     let pos = bitboard.trailing_zeros();
-    *bitboard &= *bitboard - 1 as u64;  // Remove the rightmost bit
-    return pos;
+    *bitboard &= *bitboard - 1_u64;  // Remove the rightmost bit
+    pos
 }
 
 fn transform(bitboard: u64, magic: u64, bits: i32) -> i32 {
@@ -53,7 +53,7 @@ fn index_to_bitboard(index: i32, bits: u32, mut m: u64) -> u64 {
             result |= 1u64 << j;
         }
     }
-    return result;
+    result
 }
 
 /*
@@ -88,7 +88,7 @@ impl Pawn {
                 let pawn_valid_attacks = (pawn_left_attack | pawn_right_attack) & 
                     (chessboard.get_all_pieces() | 
                     chessboard.state.en_passant_square.map_or(0, |sq| sq as u64));
-                return pawn_valid_moves | pawn_valid_attacks;
+                pawn_valid_moves | pawn_valid_attacks
             },
             Color::Black => {
                 let pawn_one_step: u64 = (location >> 8) & !chessboard.get_all_pieces();
@@ -101,7 +101,7 @@ impl Pawn {
                 let pawn_valid_attacks = (pawn_left_attack | pawn_right_attack) & 
                     (chessboard.get_all_pieces() | 
                     chessboard.state.en_passant_square.map_or(0, |sq| sq as u64));
-                return pawn_valid_moves | pawn_valid_attacks;
+                pawn_valid_moves | pawn_valid_attacks
             }
         }
     }
@@ -251,7 +251,7 @@ impl King {
             }
         }
 
-        return castle_king | castle_queen;
+        castle_king | castle_queen
     }
 }
 
@@ -313,7 +313,7 @@ impl Bishop {
         occ *= bishop().bishop_magic_table[sq].magic_number;
         occ >>= 55; //64-9
 
-        return bishop().magic_bishop_attacks[sq][occ as usize];
+        bishop().magic_bishop_attacks[sq][occ as usize]
     }
     
     fn batt(square: i32, block: u64) -> u64 {
@@ -359,7 +359,7 @@ impl Bishop {
             f -= 1;
         }
 
-        return result;
+        result
     }
 }
 
@@ -382,13 +382,13 @@ fn bishop() -> &'static Bishop {
                 if rk + d <= 6 && fl + d <= 6 {
                     result |= 1u64 << ((rk + d) * 8 + fl + d);
                 }
-                if rk + d <= 6 && fl >= d + 1 {
+                if rk + d <= 6 && fl > d {
                     result |= 1u64 << ((rk + d) * 8 + fl - d);
                 }
-                if rk >= d + 1 && fl + d <= 6 {
+                if rk > d && fl + d <= 6 {
                     result |= 1u64 << ((rk - d) * 8 + fl + d);
                 }
-                if rk >= d + 1 && fl >= d + 1 {
+                if rk > d && fl > d {
                     result |= 1u64 << ((rk - d) * 8 + fl - d);
                 }
             }
@@ -444,7 +444,7 @@ impl Rook {
         occ *= rook().rook_magic_table[sq].magic_number;
         occ >>= 52; //64-12
 
-        return rook().magic_rook_attacks[sq][occ as usize];
+        rook().magic_rook_attacks[sq][occ as usize]
     }
     
     fn ratt(square: i32, block: u64) -> u64 {
@@ -478,7 +478,7 @@ impl Rook {
             if (block & (1u64 << (f + rk * 8))) != 0 { break; }
             f -= 1;
         }
-        return result;
+        result
     }
 }
 

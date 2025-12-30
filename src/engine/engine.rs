@@ -23,6 +23,12 @@ pub struct Engine {
     chessboard: Chessboard
 }
 
+impl Default for Engine {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Engine {
     /// Initializing the engine's chessboard with the classic starting chess position.
     pub fn new() -> Self {

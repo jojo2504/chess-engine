@@ -384,7 +384,7 @@ impl Chessboard {
                     let n_letter = letter.to_digit(10).unwrap();
                     overall_index_square += n_letter;
                 } else if let Some((_color, _piece)) = raw_piece_to_type.get(&letter) {
-                    let index: usize = 63 as usize - overall_index_square as usize;
+                    let index: usize = 63_usize - overall_index_square as usize;
                     chessboard.toggle_piece(&mut chessboard.get_piece(*_color, *_piece), 1 << index, *_color);
                     overall_index_square += 1;
                 }
@@ -422,8 +422,8 @@ impl Chessboard {
     // ? Not sure if we keep it
     /// Quick checks before expensive castling computation
     pub fn should_check_castling(&self) -> bool {
-        return (self.state.turn_color == Color::White && (self.state.can_white_king_castle || self.state.can_black_queen_castle))
-            || (self.state.turn_color == Color::Black && (self.state.can_white_king_castle || self.state.can_black_queen_castle));
+        (self.state.turn_color == Color::White && (self.state.can_white_king_castle || self.state.can_black_queen_castle))
+            || (self.state.turn_color == Color::Black && (self.state.can_white_king_castle || self.state.can_black_queen_castle))
     }
 
     /// Checks if a given square is attacked by any other pieces of the opponant color.
@@ -555,7 +555,7 @@ impl Chessboard {
             self.get_all_possible_piece_moves(self.state.turn_color, Piece::try_from(i).unwrap(), all_pseudo_legal_moves, &mut move_count);
         }
 
-        return move_count;
+        move_count
     }
     
     /// Performs a `perft` performance and debugging test returning the total number of positions at the end
@@ -566,9 +566,9 @@ impl Chessboard {
 
         let mut all_pseudo_legal_moves: Vec<Move> = Vec::with_capacity(256);
         let mut nodes = 0;
-        let n_moves: usize;
+        
 
-        n_moves = self.generate_moves(&mut all_pseudo_legal_moves);
+        let n_moves: usize = self.generate_moves(&mut all_pseudo_legal_moves);
         for i in 0..n_moves {
             self.make(&all_pseudo_legal_moves[i]);
             if !self.is_in_check(self.state_stack[self.ply_index].turn_color) {
@@ -577,7 +577,7 @@ impl Chessboard {
             self.unmake(&all_pseudo_legal_moves[i]);
         }
 
-        return nodes;
+        nodes
     }
 }
 
