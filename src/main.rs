@@ -1,10 +1,11 @@
 #![warn(missing_docs, dead_code)]
 #![deny(unused_imports, unused_mut)]
+#![deny(clippy::unwrap_used, clippy::expect_used)]
 
-use chess_engine::engine::magic::magic::Magic;
+use chess_engine::engine::{models::board::Chessboard};
 
 fn main() -> anyhow::Result<()> {
-    let a = Magic::load_magic_table("/home/jojo/Documents/rust/chess-engine/src/engine/magic/BMagicTable.json")?;
-    println!("{:?}", a);
+    let chessboard = Chessboard::new();
+    // println!("{}", chessboard);
     Ok(())
 }

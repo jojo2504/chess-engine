@@ -1,5 +1,6 @@
 #![warn(missing_docs, dead_code)]
 #![deny(unused_imports, unused_mut)]
+#![deny(clippy::unwrap_used, clippy::expect_used)]
 
 use std::fs::{self};
 use serde::Deserialize;

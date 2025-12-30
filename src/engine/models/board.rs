@@ -1,5 +1,6 @@
 #![warn(missing_docs, dead_code)]
 #![deny(unused_imports, unused_mut)]
+#![deny(clippy::unwrap_used, clippy::expect_used)]
 
 use std::collections::HashMap;
 use std::{fmt};
@@ -149,45 +150,76 @@ impl Board {
 
 #[allow(missing_docs)]
 #[derive(Debug, Clone, Copy, Deserialize)]
-#[repr(u64)]
 pub enum Square {
-    A1 = 1u64 << 0, B1 = 1u64 << 1, C1 = 1u64 << 2, D1 = 1u64 << 3, E1 = 1u64 << 4, F1 = 1u64 << 5, G1 = 1u64 << 6, H1 = 1u64 << 7,
-    A2 = 1u64 << 8, B2 = 1u64 << 9, C2 = 1u64 << 10, D2 = 1u64 << 11, E2 = 1u64 << 12, F2 = 1u64 << 13, G2 = 1u64 << 14, H2 = 1u64 << 15, 
-    A3 = 1u64 << 16, B3 = 1u64 << 17, C3 = 1u64 << 18, D3 = 1u64 << 19, E3 = 1u64 << 20, F3 = 1u64 << 21, G3 = 1u64 << 22, H3 = 1u64 << 23,
-    A4 = 1u64 << 24, B4 = 1u64 << 25, C4 = 1u64 << 26, D4 = 1u64 << 27, E4 = 1u64 << 28, F4 = 1u64 << 29, G4 = 1u64 << 30, H4 = 1u64 << 31,
-    A5 = 1u64 << 32, B5 = 1u64 << 33, C5 = 1u64 << 34, D5 = 1u64 << 35, E5 = 1u64 << 36, F5 = 1u64 << 37, G5 = 1u64 << 38, H5 = 1u64 << 39,
-    A6 = 1u64 << 40, B6 = 1u64 << 41, C6 = 1u64 << 42, D6 = 1u64 << 43, E6 = 1u64 << 44, F6 = 1u64 << 45, G6 = 1u64 << 46, H6 = 1u64 << 47,
-    A7 = 1u64 << 48, B7 = 1u64 << 49, C7 = 1u64 << 50, D7 = 1u64 << 51, E7 = 1u64 << 52, F7 = 1u64 << 53, G7 = 1u64 << 54, H7 = 1u64 << 55,
-    A8 = 1u64 << 56, B8 = 1u64 << 57, C8 = 1u64 << 58, D8 = 1u64 << 59, E8 = 1u64 << 60, F8 = 1u64 << 61, G8 = 1u64 << 62, H8 = 1u64 << 63,
+    A1 = 0, B1 = 1, C1 = 2, D1 = 3, E1 = 4, F1 = 5, G1 = 6, H1 = 7,
+    A2 = 8, B2 = 9, C2 = 10, D2 = 11, E2 = 12, F2 = 13, G2 = 14, H2 = 15,
+    A3 = 16, B3 = 17, C3 = 18, D3 = 19, E3 = 20, F3 = 21, G3 = 22, H3 = 23,
+    A4 = 24, B4 = 25, C4 = 26, D4 = 27, E4 = 28, F4 = 29, G4 = 30, H4 = 31,
+    A5 = 32, B5 = 33, C5 = 34, D5 = 35, E5 = 36, F5 = 37, G5 = 38, H5 = 39,
+    A6 = 40, B6 = 41, C6 = 42, D6 = 43, E6 = 44, F6 = 45, G6 = 46, H6 = 47,
+    A7 = 48, B7 = 49, C7 = 50, D7 = 51, E7 = 52, F7 = 53, G7 = 54, H7 = 55,
+    A8 = 56, B8 = 57, C8 = 58, D8 = 59, E8 = 60, F8 = 61, G8 = 62, H8 = 63,
 }
 
-impl From<u64> for Square {
-    fn from(index: u64) -> Self {
-        unsafe { std::mem::transmute(index) }
+impl Square {
+    // Get bitboard mask for this square
+    pub const fn bitboard(self) -> u64 {
+        1u64 << (self as u64)
+    }
+    
+    // Get file (0-7)
+    pub const fn file(self) -> u8 {
+        (self as u8) % 8
+    }
+    
+    // Get rank (0-7)
+    pub const fn rank(self) -> u8 {
+        (self as u8) / 8
     }
 }
 
-fn square_from_str(square: &str) -> Result<Square, &str> {
-    if square.len() != 2 {
-        return Err("Invalid length for square.");
+impl TryFrom<u64> for Square {
+    type Error = String;
+
+    fn try_from(index: u64) -> Result<Self, Self::Error> {
+        if index > 63 {
+            return Err(format!("Index {} out of range (0-63)", index));
+        }
+        // Safe because we validated the range
+        Ok(unsafe { std::mem::transmute(index as u8) })
     }
+}
 
-    let file = square.chars().nth(0).expect("Cannot parse row."); // 'A'..'H'
-    let rank = square.chars().nth(1).expect("Cannot parse column."); // '1'..'8'
+impl From<Square> for u64 {
+    fn from(square: Square) -> u64 {
+        square as u64
+    }
+}
 
-    let file_index = match file {
-        'A'..='H' => (file as u8 - b'A') as u64,
-        _ => return Err("Unknown row detected."),
-    };
+impl FromStr for Square {
+    type Err = String;
 
-    let rank_index = match rank {
-        '1'..='8' => (rank as u8 - b'1') as u64,
-        _ => return Err("Unknown column detected."),
-    };
-
-    let bit_index = rank_index * 8 + file_index;
-
-    Ok(unsafe { std::mem::transmute(1u64 << bit_index) })
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s.len() != 2 {
+            return Err(format!("Invalid square format: {}", s));
+        }
+        
+        let chars: Vec<char> = s.to_uppercase().chars().collect();
+        let file = match chars[0] {
+            'A' => 0, 'B' => 1, 'C' => 2, 'D' => 3,
+            'E' => 4, 'F' => 5, 'G' => 6, 'H' => 7,
+            _ => return Err(format!("Invalid file: {}", chars[0])),
+        };
+        
+        let rank = match chars[1] {
+            '1' => 0, '2' => 1, '3' => 2, '4' => 3,
+            '5' => 4, '6' => 5, '7' => 6, '8' => 7,
+            _ => return Err(format!("Invalid rank: {}", chars[1])),
+        };
+        
+        let index = rank * 8 + file;
+        Square::try_from(index as u64)
+    }
 }
 
 /// ```txt
@@ -212,52 +244,22 @@ pub struct Chessboard {
 
 impl Chessboard {
     /// Default chessboard's constructor initilized with the default fen value, or classic starting position 
+    #[allow(clippy::unwrap_used, reason="The default fen will always works")]
     pub fn new() -> Self {
-        let pieces = [
-            // White pieces (indices 0-5)
-            0b11111111 << 8,           // White pawns
-            0b10000001,                // White rooks
-            0b01000010,                // White knights
-            0b00100100,                // White bishops
-            0b00010000,                // White queens
-            0b00001000,                // White king
-            // Black pieces (indices 6-11)
-            0b11111111 << 48,          // Black pawns
-            0b10000001 << 56,          // Black rooks
-            0b01000010 << 56,          // Black knights
-            0b00100100 << 56,          // Black bishops
-            0b00010000 << 56,          // Black queens
-            0b00001000 << 56,          // Black king
-        ];
-        
-        let white_pieces = pieces[0] | pieces[1] | pieces[2] | pieces[3] | pieces[4] | pieces[5];
-        let black_pieces = pieces[6] | pieces[7] | pieces[8] | pieces[9] | pieces[10] | pieces[11];
-        
-        let state = State::default();
-        let mut state_stack = Vec::with_capacity(8191); // 8192 - 1
-        state_stack[0] = state.clone();
-
-        Chessboard { 
-            pieces, 
-            white_pieces, 
-            black_pieces, 
-            state: state,
-            state_stack: state_stack,
-            ply_index: 0
-        }
+        let fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+        Self::from_fen(fen).unwrap()
     }
     
     pub fn from_fen(fen: &str) -> Result<Self, &str> {
         // Initialize variables
-        let mut state = State::default();
-        let mut chessboard = Chessboard::new();
+        let mut chessboard = Chessboard::default();
 
         // Logic
         let parts: Vec<&str> = fen.split(" ").collect();
         if parts.len() != 6 {
             return Err("Malformed FEN string.");
         }
-
+        
         // Raw values
         let positions_pieces = parts[0];
         let turn_color = match parts[1] {
@@ -269,13 +271,13 @@ impl Chessboard {
         let en_passant_square = parts[3].to_uppercase();
         let half_moves = u32::from_str(parts[4]).map_err(|_| "Invalid half-moves detected.");
         let full_moves = u32::from_str(parts[5]).map_err(|_| "Invalid full-moves detected.");
-
+        
         // Save into state
-        state.turn_color = turn_color;
-
+        chessboard.state.turn_color = turn_color;
+        
         match half_moves {
             Ok(value) => {
-                state.half_move_clock = value;
+                chessboard.state.half_move_clock = value;
             },
             Err(err) => {
                 return Err(err);
@@ -283,33 +285,36 @@ impl Chessboard {
         }
         match full_moves {
             Ok(value) => {
-                state.full_move_number = value;
+                chessboard.state.full_move_number = value;
             },
             Err(err) => {
                 return Err(err);
             }
         }
-
+        
         for x in castling_ability.chars() {
             match x {
                 'K' => {
-                    state.can_white_king_castle = true;
+                    chessboard.state.can_white_king_castle = true;
                 },
                 'Q' => {
-                    state.can_white_queen_castle = true;
+                    chessboard.state.can_white_queen_castle = true;
                 },
                 'k' => {
-                    state.can_black_king_castle = true;
+                    chessboard.state.can_black_king_castle = true;
                 },
                 'q' => {
-                    state.can_black_queen_castle = true;
+                    chessboard.state.can_black_queen_castle = true;
                 },
                 _ => {}
             }
         }
-
+        
         // Parse En Passant part
-        //state.en_passant_square = Square::from(en_passant_square)
+        chessboard.state.en_passant_square = None;
+        if let Ok(ep_square) = Square::from_str(&en_passant_square) {
+            chessboard.state.en_passant_square = Some(ep_square);
+        }
 
         // Parsing piece positions
         let mut raw_piece_to_type: HashMap<char, (Color, Piece)> = HashMap::new();
@@ -345,9 +350,6 @@ impl Chessboard {
                 }
             }
         }
-
-        // Set all attributes of chessboard
-        chessboard.state = state.clone();
 
         Ok(chessboard)
     }
@@ -529,6 +531,18 @@ impl Chessboard {
     }
 }
 
+impl Default for Chessboard {
+    fn default() -> Self {
+        Self {
+            pieces: [0; 12],
+            white_pieces: 0u64,
+            black_pieces: 0u64,
+            state: State::default(),
+            state_stack: vec![],
+            ply_index: 0,
+        }
+    }
+}
 impl fmt::Display for Chessboard {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         todo!()

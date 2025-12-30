@@ -1,5 +1,6 @@
 #![warn(missing_docs, dead_code)]
 #![deny(unused_imports, unused_mut)]
+#![deny(clippy::unwrap_used, clippy::expect_used)]
 
 use crate::engine::models::{board::Chessboard};
 
@@ -33,7 +34,7 @@ impl Engine {
     /// Initializing the engine's chessboard with a custom position, parsed using fen.
     pub fn from_fen(fen: &str) -> Self {
         Self {
-            chessboard: Chessboard::from_fen(fen)
+            chessboard: Chessboard::from_fen(fen).unwrap()
         }
     }
 

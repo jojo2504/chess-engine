@@ -8,7 +8,7 @@ mod tests {
     #[test]
     fn test_perft_1() {
         let fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-        let mut chessboard = Chessboard::from_fen(fen);
+        let mut chessboard = Chessboard::from_fen(fen).unwrap();
         assert_eq!(chessboard.perft(1), 20);
         assert_eq!(chessboard.perft(2), 400);
         assert_eq!(chessboard.perft(3), 8902);
