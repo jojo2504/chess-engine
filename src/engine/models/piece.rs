@@ -1,5 +1,6 @@
 #![warn(missing_docs, dead_code)]
 #![deny(unused_imports, unused_mut)]
+#![warn(clippy::missing_docs_in_private_items)]
 #![deny(clippy::unwrap_used, clippy::expect_used)]
 
 use std::sync::OnceLock;
@@ -7,9 +8,9 @@ use std::sync::OnceLock;
 use crate::engine::{magic::magic::Magic, models::board::{Board, Chessboard, Color, File, Rank}};
 
 /// Quick enum to match pieces
-#[allow(missing_docs)]
+#[allow(clippy::missing_docs_in_private_items)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Piece {
+pub(crate) enum Piece {
     Pawn,
     Rook,
     Knight,
@@ -60,16 +61,30 @@ fn index_to_bitboard(index: i32, bits: u32, mut m: u64) -> u64 {
     TELEPORTING PIECES
 */
 
-pub struct Pawn {
+/// Represents a pawn piece in chess with precomputed attack patterns.
+///
+/// This struct contains precomputed bitboards for pawn attacks from all possible
+/// square positions on the chessboard. The attack masks are stored in an array
+/// indexed by square position (0-63 for valid squares, with the extra positions
+/// potentially used for padding or to handle both white and black pawns).
+///
+/// # Fields
+///
+/// * `pawn_attack_masks` - An array of 128 bitboards representing the attack patterns
+///   for pawns from different positions. Each bitboard represents the squares that
+///   a pawn can attack from a given position.
+pub(crate) struct Pawn {
+    /// Precomputed attack mask for every pawn position for both side, white then black.
     pawn_attack_masks: [u64; 128]
 }
 
 impl Pawn {
-    pub fn get_attack_mask() -> [u64; 128] {
+    /// Returns the precomputed attack masks for pawns.
+    pub(crate) fn get_attack_mask() -> [u64; 128] {
         pawn().pawn_attack_masks
     }
 
-    pub fn compute_possible_moves(location: u64, chessboard: &Chessboard, turn_color: Color) -> u64 {
+    pub(crate) fn compute_possible_moves(location: u64, chessboard: &Chessboard, turn_color: Color) -> u64 {
         match turn_color {
             Color::White => {
                 let pawn_one_step: u64 = (location << 8) & !chessboard.get_all_pieces();
@@ -106,12 +121,13 @@ impl Pawn {
         }
     }
 
-    pub fn compute_possible_attacks(location: u64, chessboard: &Chessboard, turn_color: Color) -> u64 {
+    pub(crate) fn compute_possible_attacks(location: u64, chessboard: &Chessboard, turn_color: Color) -> u64 {
         let own_side = chessboard.get_color_pieces(turn_color);
         pawn().pawn_attack_masks[(turn_color as usize + 1) * location.trailing_zeros() as usize] & !own_side
     }
 }
 
+/// Lazy static initializer for [Pawn].
 fn pawn() -> &'static Pawn {
     static PAWN: OnceLock<Pawn> = OnceLock::new();
     PAWN.get_or_init(|| {
@@ -135,21 +151,23 @@ fn pawn() -> &'static Pawn {
     })
 }
 
-pub struct Knight {
+pub(crate) struct Knight {
+    /// Precomputed attack mask for every knight position.
     knight_move_masks: [u64; 64]
 }
 
 impl Knight {
-    pub fn get_move_masks() -> [u64; 64] {
+    pub(crate) fn get_move_masks() -> [u64; 64] {
         knight().knight_move_masks
     }
 
-    pub fn compute_possible_moves(location: u64, chessboard: &Chessboard, turn_color: Color) -> u64 {
+    pub(crate) fn compute_possible_moves(location: u64, chessboard: &Chessboard, turn_color: Color) -> u64 {
         let own_side = chessboard.get_color_pieces(turn_color);
         knight().knight_move_masks[location.trailing_zeros() as usize] & !own_side
     }
 }
 
+/// Lazy static initializer for [Knight].
 fn knight() -> &'static Knight {
     static KNIGHT: OnceLock<Knight> = OnceLock::new();
     KNIGHT.get_or_init(|| {
@@ -204,21 +222,22 @@ enum CastlingMasks {
     BlackQueenSideAttack = (1u64 << 60) | (1u64 << 59) | (1u64 << 58), // E8, D8, C8
 }
 
-pub struct King {
+pub(crate) struct King {
+    /// Precomputed attack mask for every king position.
     king_move_masks: [u64; 64],
 }
 
 impl King {
-    pub fn get_move_masks() -> [u64; 64] {
+    pub(crate) fn get_move_masks() -> [u64; 64] {
         king().king_move_masks
     }
 
-    pub fn compute_possible_moves(location: u64, chessboard: &Chessboard, turn_color: Color) -> u64 {
+    pub(crate) fn compute_possible_moves(location: u64, chessboard: &Chessboard, turn_color: Color) -> u64 {
         let own_side = chessboard.get_color_pieces(turn_color);
         king().king_move_masks[location.trailing_zeros() as usize] & !own_side
     }
 
-    pub fn compute_possible_castling_moves(location: u64, chessboard: &Chessboard, turn_color: Color) -> u64 {
+    pub(crate) fn compute_possible_castling_moves(location: u64, chessboard: &Chessboard, turn_color: Color) -> u64 {
         let mut castle_king: u64 = 0;
         let mut castle_queen: u64 = 0;
 
@@ -255,6 +274,7 @@ impl King {
     }
 }
 
+/// Lazy static initializer for [King].
 fn king() -> &'static King {
     static KING: OnceLock<King> = OnceLock::new();
     KING.get_or_init(|| {
@@ -289,7 +309,7 @@ fn king() -> &'static King {
     SLIDING PIECES
 */
 
-pub struct Bishop {
+pub(crate) struct Bishop {
     bishop_blocker_mask: [u64; 64],
     bishop_magic_table: Vec<Magic>,
     magic_bishop_attacks: [[u64; 4096]; 64] 
@@ -299,13 +319,13 @@ impl Bishop {
     /// From a given bishop `location`, `turn_color` and `chessboard`, returns a bitboard representing all the valid squares it can move to
     /// without checking if it's really valid (is pseudolegal move) or capturing a piece yet. Note that it may overlap with the opponant
     /// all pieces bitboard because of possible captures.
-    pub fn compute_possible_moves(location: u64, chessboard: &Chessboard, turn_color: Color) -> u64 {
+    pub(crate) fn compute_possible_moves(location: u64, chessboard: &Chessboard, turn_color: Color) -> u64 {
         let own_side = chessboard.get_color_pieces(turn_color);
         Bishop::rays(location, chessboard) & !own_side
     }
 
     /// Using the magic bitboard `table` and very precise operations, returns all the `rays` of the bishop. Note that it's not checking for any side yet. 
-    pub fn rays(location: u64, chessboard: &Chessboard) -> u64 {
+    pub(crate) fn rays(location: u64, chessboard: &Chessboard) -> u64 {
         let sq: usize = location.trailing_zeros() as usize;
         let mut occ = chessboard.get_all_pieces();
 
@@ -363,6 +383,7 @@ impl Bishop {
     }
 }
 
+/// Lazy static initializer for [Bishop].
 fn bishop() -> &'static Bishop {
     static BISHOP: OnceLock<Bishop> = OnceLock::new();
     BISHOP.get_or_init(|| {
@@ -417,26 +438,26 @@ fn bishop() -> &'static Bishop {
     })
 }
 
-pub struct Rook {
+pub(crate) struct Rook {
     rook_blocker_mask: [u64; 64],
     rook_magic_table: Vec<Magic>,
     magic_rook_attacks: [[u64; 4096]; 64] 
 }
     
 impl Rook {
-    pub const WHITE_CASTLING_MASK: u64 = 0x81;  // A1 | H1
-    pub const BLACK_CASTLING_MASK: u64 = 0x8100000000000000; // A8 | H8
+    pub(crate) const WHITE_CASTLING_MASK: u64 = 0x81;  // A1 | H1
+    pub(crate) const BLACK_CASTLING_MASK: u64 = 0x8100000000000000; // A8 | H8
 
     /// From a given rook `location`, `turn_color` and `chessboard`, returns a bitboard representing all the valid squares it can move to
     /// without checking if it's really valid (is pseudolegal move) or capturing a piece yet. Note that it may overlap with the opponant
     /// all pieces bitboard because of possible captures.
-    pub fn compute_possible_moves(location: u64, chessboard: &Chessboard, turn_color: Color) -> u64 {
+    pub(crate) fn compute_possible_moves(location: u64, chessboard: &Chessboard, turn_color: Color) -> u64 {
         let own_side = chessboard.get_color_pieces(turn_color);
         Rook::rays(location, chessboard) & !own_side
     }
 
     /// Using the magic bitboard `table` and very precise operations, returns all the `rays` of the rook. Note that it's not checking for any side yet. 
-    pub fn rays(location: u64, chessboard: &Chessboard) -> u64 {
+    pub(crate) fn rays(location: u64, chessboard: &Chessboard) -> u64 {
         let sq: usize = location.trailing_zeros() as usize;
         let mut occ = chessboard.get_all_pieces();
 
@@ -482,6 +503,7 @@ impl Rook {
     }
 }
 
+/// Lazy static initializer for [Rook].
 fn rook() -> &'static Rook {
     static ROOK: OnceLock<Rook> = OnceLock::new();
     ROOK.get_or_init(|| {
@@ -533,33 +555,34 @@ fn rook() -> &'static Rook {
     })
 }
 
-pub struct Queen;
+pub(crate) struct Queen;
 
 impl Queen {
-    pub fn compute_possible_moves(location: u64, chessboard: &Chessboard, turncolor: Color) -> u64 {
+    pub(crate) fn compute_possible_moves(location: u64, chessboard: &Chessboard, turncolor: Color) -> u64 {
         Rook::compute_possible_moves(location, chessboard, turncolor) | 
         Bishop::compute_possible_moves(location, chessboard, turncolor)
     }
 }
 
 /// This special piece is used to help checking if a square is attacked by any piece, by casting its attack directly to them
-pub struct SuperPiece {
+pub(crate) struct SuperPiece {
     rook_rays: [u64; 64],
     bishop_rays: [u64; 64]
 }
 
 impl SuperPiece {
     /// Returns an array of all rook rays for each square, simulating am empty board.
-    pub fn rook_rays() -> [u64; 64] {
+    pub(crate) fn rook_rays() -> [u64; 64] {
         super_piece().rook_rays
     }
     
     /// Returns an array of all bishop rays for each square, simulating am empty board.
-    pub fn bishop_rays() -> [u64; 64] {
+    pub(crate) fn bishop_rays() -> [u64; 64] {
         super_piece().bishop_rays
     }
 }
 
+/// Lazy static initializer for [SuperPiece].
 fn super_piece() -> &'static SuperPiece {
     static SUPER_PIECE: OnceLock<SuperPiece> = OnceLock::new();
     SUPER_PIECE.get_or_init(|| {

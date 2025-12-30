@@ -1,5 +1,6 @@
 #![warn(missing_docs, dead_code)]
 #![deny(unused_imports, unused_mut)]
+#![warn(clippy::missing_docs_in_private_items)]
 #![deny(clippy::unwrap_used, clippy::expect_used)]
 
 use std::collections::HashMap;
@@ -10,13 +11,13 @@ use crate::engine::models::{r#move::Move, piece::{Bishop, King, Knight, Pawn, Pi
 
 /// Represents a board rank, or horizontal line. `A1..H1`
 #[allow(missing_docs)]
-pub enum Rank {
+pub(crate) enum Rank {
     Rank1, Rank2, Rank3, Rank4, Rank5, Rank6, Rank7, Rank8
 }
 
 impl Rank {
     /// Returns the mask of a rank.
-    pub fn mask(self) -> u64 {
+    pub(crate) fn mask(self) -> u64 {
         use Rank::*;
         match self {
             Rank1 => 0xFF,
@@ -31,7 +32,7 @@ impl Rank {
     }
     
     /// Returns the clear mask of a rank which is equivalent to `!mask`.
-    pub fn clear(self) -> u64 {
+    pub(crate) fn clear(self) -> u64 {
         use Rank::*;
         match self {
             Rank1 => 0xFFFFFFFFFFFFFF00,
@@ -46,7 +47,7 @@ impl Rank {
     }
 
     /// Convert an `i32` into a Rank, should only be used in a context where the conversion is infallible.
-    pub fn from_i32_unchecked(value: i32) -> Self {
+    pub(crate) fn from_i32_unchecked(value: i32) -> Self {
         match value {
             x if x == Rank::Rank1 as i32 => Rank::Rank1,
             x if x == Rank::Rank2 as i32 => Rank::Rank2,
@@ -81,13 +82,13 @@ impl TryFrom<i32> for Rank {
 
 /// Represents a board file, or vertical line. `A1..A8`
 #[allow(missing_docs)]
-pub enum File {
+pub(crate) enum File {
     FileA, FileB, FileC, FileD, FileE, FileF, FileG, FileH
 }
 
 impl File {
     /// Returns the mask of a file.
-    pub fn mask(self) -> u64 {
+    pub(crate) fn mask(self) -> u64 {
         use File::*;
         match self {
             FileA => 0x0101010101010101,
@@ -102,7 +103,7 @@ impl File {
     }
 
     /// Returns the clear mask of a file which is equivalent to `!mask`.
-    pub fn clear(self) -> u64 {
+    pub(crate) fn clear(self) -> u64 {
         use File::*;
         match self {
             FileA => 0xFEFEFEFEFEFEFEFE,
@@ -117,7 +118,7 @@ impl File {
     }
 
     /// Convert an `i32` into a File, should only be used in a context where the conversion is infallible.
-    pub fn from_i32_unchecked(value: i32) -> Self {
+    pub(crate) fn from_i32_unchecked(value: i32) -> Self {
         match value {
             x if x == File::FileA as i32 => File::FileA,
             x if x == File::FileB as i32 => File::FileB,
@@ -152,7 +153,7 @@ impl TryFrom<i32> for File {
 
 /// Reprensents one of the two piece's color
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Color {
+pub(crate) enum Color {
     /// Used to represent the white pieces or white turn.
     White,
     /// Used to represent the black pieces or black turn.
@@ -160,8 +161,9 @@ pub enum Color {
 }
 
 /// Constant values of a board state.
+#[allow(clippy::upper_case_acronyms)]
 #[repr(u64)]
-pub enum Board {
+pub(crate) enum Board {
     /// Constant value to a empty board (only `0`s).
     EMPTY = 0u64,
     /// Constant value to a full board (only `1`s).
@@ -170,29 +172,30 @@ pub enum Board {
 
 impl Board {
     /// Full board minus the 4 corners.
-    pub fn get_corner_clear() -> u64 {
+    pub(crate) fn get_corner_clear() -> u64 {
         0x7EFFFFFFFFFFFF7E
     }
     
     /// Only the 4 corners of the chessboard.
-    pub fn get_corner_mask() -> u64 {
+    pub(crate) fn get_corner_mask() -> u64 {
         0x8100000000000081
     }
     
     /// Full board minus the 4 borders.
-    pub fn get_all_border_clear() -> u64 {
+    pub(crate) fn get_all_border_clear() -> u64 {
         0x7E7E7E7E7E7E00
     } 
     
     /// Only the 4 borders of the chessboard.
-    pub fn get_all_border_mask() -> u64 {
+    pub(crate) fn get_all_border_mask() -> u64 {
         0xFF818181818181FF
     }
 }
 
 #[allow(missing_docs)]
+#[allow(clippy::missing_docs_in_private_items)]
 #[derive(Debug, Clone, Copy, Deserialize)]
-pub enum Square {
+pub(crate) enum Square {
     A1 = 0, B1 = 1, C1 = 2, D1 = 3, E1 = 4, F1 = 5, G1 = 6, H1 = 7,
     A2 = 8, B2 = 9, C2 = 10, D2 = 11, E2 = 12, F2 = 13, G2 = 14, H2 = 15,
     A3 = 16, B3 = 17, C3 = 18, D3 = 19, E3 = 20, F3 = 21, G3 = 22, H3 = 23,
@@ -205,17 +208,17 @@ pub enum Square {
 
 impl Square {
     /// Get bitboard mask for this square
-    pub const fn bitboard(self) -> u64 {
+    pub(crate) const fn bitboard(self) -> u64 {
         1u64 << (self as u64)
     }
     
     /// Get file
-    pub fn file(self) -> File {
+    pub(crate) fn file(self) -> File {
         File::from_i32_unchecked(self as i32 % 8)
     }
     
     /// Get rank
-    pub fn rank(self) -> Rank {
+    pub(crate) fn rank(self) -> Rank {
         Rank::from_i32_unchecked(self as i32 % 8)
     }
 }
@@ -276,18 +279,18 @@ impl FromStr for Square {
 /// ```
 pub struct Chessboard {
     /// The 12 bitboards for each piece, starting with white then black, same order as [Piece].
-    pub pieces: [u64; 12],
+    pub(crate) pieces: [u64; 12],
     /// Bitboard representing the position of all white pieces.
-    pub white_pieces: u64,
+    pub(crate) white_pieces: u64,
     /// Bitboard representing the position of all black pieces.
-    pub black_pieces: u64,
+    pub(crate) black_pieces: u64,
 
     /// Current state of the chessboard.
-    pub state: State,
+    pub(crate) state: State,
     /// Used to keep track of all previous and current states of the chessboard. 
-    pub state_stack: Vec<State>,
+    pub(crate) state_stack: Vec<State>,
     /// Used to index the state_stack, representing the current ply, equivalent to a half-move.
-    pub ply_index: usize
+    pub(crate) ply_index: usize
 }
 
 impl Chessboard {
@@ -298,13 +301,13 @@ impl Chessboard {
     /// let fen: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
     /// ```
     #[allow(clippy::unwrap_used, reason="The default fen will always works")]
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         let fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
         Self::from_fen(fen).unwrap()
     }
     
     /// Chessboard's constructor initialized with a custom fen value.
-    pub fn from_fen(fen: &str) -> Result<Self, &str> {
+    pub(crate) fn from_fen(fen: &str) -> Result<Self, &str> {
         // Initialize variables
         let mut chessboard = Chessboard::default();
 
@@ -412,13 +415,13 @@ impl Chessboard {
     /// 
     /// For example, `self.get_piece(Color::White, Piece::Pawn)` returns the bitboard with all white pawns.
     #[inline]
-    pub fn get_piece(&self, color: Color, piece: Piece) -> u64 {
+    pub(crate) fn get_piece(&self, color: Color, piece: Piece) -> u64 {
         self.pieces[color as usize * 6 + piece as usize]
     }
     
     /// Returns a bitboard with all pieces on chessboard.
     #[inline]
-    pub fn get_all_pieces(&self) -> u64 {
+    pub(crate) fn get_all_pieces(&self) -> u64 {
         self.white_pieces | self.black_pieces
     }
 
@@ -426,7 +429,7 @@ impl Chessboard {
     /// 
     /// For Example, calling `self.get_color_pieces(Color::White)` returns the bitboard with all white pieces.
     #[inline]
-    pub fn get_color_pieces(&self, turn_color: Color) -> u64 {
+    pub(crate) fn get_color_pieces(&self, turn_color: Color) -> u64 {
         match turn_color {
             Color::White => self.white_pieces,
             Color::Black => self.black_pieces,
@@ -435,9 +438,9 @@ impl Chessboard {
     
     // ? Not sure if we keep it
     /// Quick checks before expensive castling computation
-    pub fn should_check_castling(&self) -> bool {
-        (self.state.turn_color == Color::White && (self.state.can_white_king_castle || self.state.can_black_queen_castle))
-            || (self.state.turn_color == Color::Black && (self.state.can_white_king_castle || self.state.can_black_queen_castle))
+    pub(crate) fn should_check_castling(&self) -> bool {
+        (self.state.turn_color == Color::White && (self.state.can_white_king_castle || self.state.can_white_queen_castle))
+            || (self.state.turn_color == Color::Black && (self.state.can_black_king_castle || self.state.can_black_queen_castle))
     }
 
     /// Checks if a given square is attacked by any other pieces of the opponant color.
@@ -491,7 +494,7 @@ impl Chessboard {
     ///
     /// This is particularly useful for checking castle rights.
     #[inline]
-    pub fn any_attacked_squared_by_side(&self, mut squares: u64, attacking_side: Color) -> bool {
+    pub(crate) fn any_attacked_squared_by_side(&self, mut squares: u64, attacking_side: Color) -> bool {
         while squares != 0 {
             let square = 1u64 << squares.trailing_zeros();
             squares &= squares - 1;
@@ -504,7 +507,7 @@ impl Chessboard {
 
     /// Checks is any of the squares (reprensented as 1s in the `squares: u64`) has a piece on it.
     #[inline]
-    pub fn any_occupied_square(&self, squares: u64) -> bool {
+    pub(crate) fn any_occupied_square(&self, squares: u64) -> bool {
         (squares & self.get_all_pieces()) != 0
     }
 
@@ -524,7 +527,7 @@ impl Chessboard {
     /// chessboard.toggle_piece(&mut chessboard.get_piece(Color::White, Piece::Pawn), Square::A2.bitboard(), Color::White);
     /// ```
     #[inline]
-    pub fn slide_piece(&mut self, piece_bitboard: &mut u64, from: u64, to: u64, side: Color) {
+    pub(crate) fn slide_piece(&mut self, piece_bitboard: &mut u64, from: u64, to: u64, side: Color) {
         
         *piece_bitboard ^= from ^ to;
         match side {
@@ -534,7 +537,7 @@ impl Chessboard {
     }
 
     /// Use this method when required to put a piece without moving one or removing a piece, like during game initialization, captures or promotions.
-    pub fn toggle_piece(&mut self, piece_bitboard: &mut u64, square: u64, side: Color) {
+    pub(crate) fn toggle_piece(&mut self, piece_bitboard: &mut u64, square: u64, side: Color) {
         *piece_bitboard ^= square;
         match side {
             Color::White => self.white_pieces ^= square,
@@ -543,17 +546,17 @@ impl Chessboard {
     }
 
     /// Make a move on the chessboard itself.
-    pub fn make(&mut self, r#move: &Move) {
+    pub(crate) fn make(&mut self, r#move: &Move) {
         todo!()
     }
     
     /// Unmake a move on the chessboard itself.
-    pub fn unmake(&mut self, r#move: &Move) {
+    pub(crate) fn unmake(&mut self, r#move: &Move) {
         todo!()
     }
     
     /// Checks if the current tested side king is in check or not
-    pub fn is_in_check(&self, side: Color) -> bool {
+    pub(crate) fn is_in_check(&self, side: Color) -> bool {
         todo!()
     }
 
