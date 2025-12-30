@@ -15,6 +15,7 @@ pub enum Rank {
 }
 
 impl Rank {
+    /// Returns the mask of a rank.
     pub fn mask(self) -> u64 {
         use Rank::*;
         match self {
@@ -28,7 +29,8 @@ impl Rank {
             Rank8 => 0xFF00000000000000,
         }
     }
-        
+    
+    /// Returns the clear mask of a rank which is equivalent to `!mask`.
     pub fn clear(self) -> u64 {
         use Rank::*;
         match self {
@@ -43,6 +45,7 @@ impl Rank {
         }
     }
 
+    /// Convert an `i32` into a Rank, should only be used in a context where the conversion is infallible.
     pub fn from_i32_unchecked(value: i32) -> Self {
         match value {
             x if x == Rank::Rank1 as i32 => Rank::Rank1,
@@ -83,6 +86,7 @@ pub enum File {
 }
 
 impl File {
+    /// Returns the mask of a file.
     pub fn mask(self) -> u64 {
         use File::*;
         match self {
@@ -97,6 +101,7 @@ impl File {
         }
     }
 
+    /// Returns the clear mask of a file which is equivalent to `!mask`.
     pub fn clear(self) -> u64 {
         use File::*;
         match self {
@@ -111,6 +116,7 @@ impl File {
         }
     }
 
+    /// Convert an `i32` into a File, should only be used in a context where the conversion is infallible.
     pub fn from_i32_unchecked(value: i32) -> Self {
         match value {
             x if x == File::FileA as i32 => File::FileA,
@@ -147,30 +153,38 @@ impl TryFrom<i32> for File {
 /// Reprensents one of the two piece's color
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Color {
+    /// Used to represent the white pieces or white turn.
     White,
+    /// Used to represent the black pieces or black turn.
     Black
 }
 
 /// Constant values of a board state.
 #[repr(u64)]
 pub enum Board {
+    /// Constant value to a empty board (only `0`s).
     EMPTY = 0u64,
+    /// Constant value to a full board (only `1`s).
     FULL = u64::MAX
 }
 
 impl Board {
+    /// Full board minus the 4 corners.
     pub fn get_corner_clear() -> u64 {
         0x7EFFFFFFFFFFFF7E
     }
-
+    
+    /// Only the 4 corners of the chessboard.
     pub fn get_corner_mask() -> u64 {
         0x8100000000000081
     }
-
+    
+    /// Full board minus the 4 borders.
     pub fn get_all_border_clear() -> u64 {
         0x7E7E7E7E7E7E00
     } 
-
+    
+    /// Only the 4 borders of the chessboard.
     pub fn get_all_border_mask() -> u64 {
         0xFF818181818181FF
     }
