@@ -7,9 +7,5 @@ use chess_engine::engine::models::{board::{Chessboard, Color, Square}, piece::Pi
 
 fn main() -> anyhow::Result<()> {
     let mut chessboard = Chessboard::new();
-    // Move a pawn from A2 to A3
-    chessboard.slide_piece(&mut chessboard.get_piece(Color::White, Piece::Pawn), Square::A2.bitboard(), Square::A3.bitboard(), Color::White);
-    // Remove the captured piece
-    chessboard.toggle_piece(&mut chessboard.get_piece(Color::White, Piece::Pawn), Square::A2.bitboard(), Color::White);
     Ok(())
 }

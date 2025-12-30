@@ -301,13 +301,13 @@ impl Chessboard {
     /// let fen: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
     /// ```
     #[allow(clippy::unwrap_used, reason="The default fen will always works")]
-    pub(crate) fn new() -> Self {
+    pub fn new() -> Self {
         let fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
         Self::from_fen(fen).unwrap()
     }
     
     /// Chessboard's constructor initialized with a custom fen value.
-    pub(crate) fn from_fen(fen: &str) -> Result<Self, &str> {
+    pub fn from_fen(fen: &str) -> Result<Self, &str> {
         // Initialize variables
         let mut chessboard = Chessboard::default();
 

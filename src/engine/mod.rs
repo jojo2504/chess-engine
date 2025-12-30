@@ -1,3 +1,3 @@
 pub mod models;
 pub mod engine;
-pub mod magic;
+pub(crate) mod magic;

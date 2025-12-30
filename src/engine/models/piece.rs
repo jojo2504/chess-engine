@@ -151,6 +151,12 @@ fn pawn() -> &'static Pawn {
     })
 }
 
+/// Represents a knight piece in chess with precomputed move generation data.
+///
+/// The knight moves in an L-shape: two squares in one direction and one square perpendicular,
+/// or one square in one direction and two squares perpendicular. This struct stores
+/// precomputed attack masks for all 64 possible knight positions on the board for
+/// efficient move generation.
 pub(crate) struct Knight {
     /// Precomputed attack mask for every knight position.
     knight_move_masks: [u64; 64]
@@ -207,6 +213,7 @@ fn knight() -> &'static Knight {
     })
 }
 
+/// Masks used to facilitate the castling right check process.
 #[repr(u64)]
 enum CastlingMasks {
     WhiteKingSideEmpty = (1u64 << 5) | (1u64 << 6), // F1, G1
@@ -309,9 +316,17 @@ fn king() -> &'static King {
     SLIDING PIECES
 */
 
+/// Represents a bishop piece in chess with precomputed attack patterns using magic bitboards.
+///
+/// The bishop moves diagonally any number of squares. This struct uses magic bitboards
+/// for efficient move generation, storing precomputed attack patterns for all possible
+/// blocker configurations.
 pub(crate) struct Bishop {
+    /// Precomputed blocker mask for every bishop position.
     bishop_blocker_mask: [u64; 64],
+    /// Magic bitboard table for transforming occupancy to attack indices.
     bishop_magic_table: Vec<Magic>,
+    /// Precomputed attack patterns indexed by square and magic-transformed occupancy.
     magic_bishop_attacks: [[u64; 4096]; 64] 
 }
     
@@ -438,6 +453,11 @@ fn bishop() -> &'static Bishop {
     })
 }
 
+/// Represents a rook piece in chess with precomputed attack patterns using magic bitboards.
+///
+/// The rook moves horizontally or vertically any number of squares. This struct uses magic bitboards
+/// for efficient move generation, storing precomputed attack patterns for all possible
+/// blocker configurations.
 pub(crate) struct Rook {
     rook_blocker_mask: [u64; 64],
     rook_magic_table: Vec<Magic>,
@@ -555,6 +575,9 @@ fn rook() -> &'static Rook {
     })
 }
 
+// Represents a queen piece in chess with precomputed attack patterns using magic bitboards.
+///
+/// The queen merges the moves of both the [Rook] and the [Bishop].
 pub(crate) struct Queen;
 
 impl Queen {
