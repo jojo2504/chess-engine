@@ -402,7 +402,9 @@ impl Chessboard {
                     overall_index_square += n_letter;
                 } else if let Some((_color, _piece)) = raw_piece_to_type.get(&letter) {
                     let index: usize = 63_usize - overall_index_square as usize;
-                    chessboard.toggle_piece(&mut chessboard.get_piece(*_color, *_piece), 1 << index, *_color);
+                    let mut board = chessboard.get_piece(*_color, *_piece);
+                    chessboard.toggle_piece( &mut board, 1 << index, *_color);
+                    chessboard.set_piece(*_color, *_piece, board);
                     overall_index_square += 1;
                 }
             }
@@ -417,6 +419,11 @@ impl Chessboard {
     #[inline]
     pub(crate) fn get_piece(&self, color: Color, piece: Piece) -> u64 {
         self.pieces[color as usize * 6 + piece as usize]
+    }
+
+    #[inline]
+    pub(crate) fn set_piece(&mut self, color: Color, piece: Piece, bitboard: u64) {
+        self.pieces[color as usize * 6 + piece as usize] = bitboard;
     }
     
     /// Returns a bitboard with all pieces on chessboard.
