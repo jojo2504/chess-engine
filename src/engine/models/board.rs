@@ -307,10 +307,10 @@ impl Chessboard {
     }
 
     /// Get the type of piece at the square
-    /// with the offset relative to the LSB of the bitboard.
+    /// with the raw offset relative to the LSB of the bitboard.
     /// 
     /// For example, `offset = 0` means the square `H1`, `offset = 1` means `G1`, and so on.
-    pub(crate) fn get_piece_at_square(&self, offset: u64) -> (Option<Piece>, Color) {
+    pub(crate) fn get_piece_at_raw_offset(&self, offset: u64) -> (Option<Piece>, Color) {
         for piece in 0..12 {
             let p = Piece::try_from(piece as i32 % 6 as i32).unwrap();
             let board = self.pieces[piece];
@@ -324,6 +324,19 @@ impl Chessboard {
         }
 
         (None, Color::White)
+    }
+
+    /// Get the type of piece at the square
+    /// with the offset relative to the position of the chessboard (A1 is the LSB).
+    /// 
+    /// For example, `offset = 0` means the square `A1`, `offset = 1` means `B1`, and so on.
+    pub(crate) fn get_piece_at_square(&self, offset: u64) -> (Option<Piece>, Color) {
+        let i = offset;
+        let rank_start = i / 8 * 8;
+        let line_position = i % 8;
+        let reversed_index = rank_start + (7 - line_position);
+
+        self.get_piece_at_raw_offset(reversed_index)
     }
     
     /// Chessboard's constructor initialized with a custom fen value.
