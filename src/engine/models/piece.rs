@@ -10,7 +10,7 @@ use crate::engine::{magic::magic::Magic, models::board::{Board, Chessboard, Colo
 /// Quick enum to match pieces
 #[allow(clippy::missing_docs_in_private_items)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum Piece {
+pub enum Piece {
     Pawn,
     Rook,
     Knight,
