@@ -558,13 +558,14 @@ impl Chessboard {
     /// chessboard.toggle_piece(&mut chessboard.get_piece(Color::White, Piece::Pawn), Square::A2.bitboard(), Color::White);
     /// ```
     #[inline]
-    pub(crate) fn slide_piece(&mut self, piece_bitboard: &mut u64, from: u64, to: u64, side: Color) {
+    pub(crate) fn slide_piece(&mut self, piece_bitboard: &mut u64, from: u64, to: u64, side: Color, piece: Piece) {
         
         *piece_bitboard ^= from ^ to;
         match side {
             Color::White => self.white_pieces ^= from ^ to,
             Color::Black => self.black_pieces ^= from ^ to,
         }
+        self.set_piece(side, piece, *piece_bitboard);
     }
 
     /// Use this method when required to put a piece without moving one or removing a piece, like during game initialization, captures or promotions.
