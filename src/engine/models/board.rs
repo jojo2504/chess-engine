@@ -423,8 +423,7 @@ impl Chessboard {
                 } else if let Some((_color, _piece)) = raw_piece_to_type.get(&letter) {
                     let index: usize = 63_usize - overall_index_square as usize;
                     let mut board = chessboard.get_piece(*_color, *_piece);
-                    chessboard.toggle_piece( &mut board, 1 << index, *_color);
-                    chessboard.set_piece(*_color, *_piece, board);
+                    chessboard.toggle_piece( &mut board, 1 << index, *_color, *_piece);
                     overall_index_square += 1;
                 }
             }
@@ -568,12 +567,13 @@ impl Chessboard {
     }
 
     /// Use this method when required to put a piece without moving one or removing a piece, like during game initialization, captures or promotions.
-    pub(crate) fn toggle_piece(&mut self, piece_bitboard: &mut u64, square: u64, side: Color) {
+    pub(crate) fn toggle_piece(&mut self, piece_bitboard: &mut u64, square: u64, side: Color, piece: Piece) {
         *piece_bitboard ^= square;
         match side {
             Color::White => self.white_pieces ^= square,
             Color::Black => self.black_pieces ^= square,
         }
+        self.set_piece(side, piece, *piece_bitboard);
     }
 
     /// Make a move on the chessboard itself.
