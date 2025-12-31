@@ -35,6 +35,19 @@ impl TryFrom<i32> for Piece {
     }
 }
 
+impl From<Piece> for char {
+    fn from(piece: Piece) -> Self {
+        match piece {
+            Piece::Pawn => 'p',
+            Piece::Knight => 'n',
+            Piece::Bishop => 'b',
+            Piece::Rook => 'r',
+            Piece::Queen => 'q',
+            Piece::King => 'k',
+        }
+    }
+}
+
 fn pop_1st_bit(bitboard: &mut u64) -> u32 {
     let pos = bitboard.trailing_zeros();
     *bitboard &= *bitboard - 1_u64;  // Remove the rightmost bit

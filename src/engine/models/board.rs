@@ -305,6 +305,26 @@ impl Chessboard {
         let fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
         Self::from_fen(fen).unwrap()
     }
+
+    /// Get the type of piece at the square
+    /// with the offset relative to the LSB of the bitboard.
+    /// 
+    /// For example, `offset = 0` means the square `H1`, `offset = 1` means `G1`, and so on.
+    pub(crate) fn get_piece_at_square(&self, offset: u64) -> (Option<Piece>, Color) {
+        for piece in 0..12 {
+            let p = Piece::try_from(piece as i32 % 6 as i32).unwrap();
+            let board = self.pieces[piece];
+            if (1 << offset as u64) & board != 0 {
+                if piece > 5 {
+                    return (Some(p), Color::White);
+                } else {
+                    return (Some(p), Color::Black);
+                }
+            }
+        }
+
+        (None, Color::White)
+    }
     
     /// Chessboard's constructor initialized with a custom fen value.
     pub fn from_fen(fen: &str) -> Result<Self, &str> {
@@ -620,6 +640,29 @@ impl Default for Chessboard {
 
 impl fmt::Display for Chessboard {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        todo!()
+        let mut result = String::new();
+        //let colors: Vec<Color> = vec![Color::White, Color::Black];
+        for i in 0..64 {
+            //let r = flip_rank(i);
+            let r = i as u64;
+            match self.get_piece_at_square(r) {
+                (Some(piece), color) => {
+                    let mut c = char::from(piece);
+                    if color == Color::White {
+                        c = c.to_ascii_uppercase();
+                    }
+                    result.push(c);
+                },
+                (None, _) => {
+                    result.push('.')
+                }
+            }
+
+            if i % 8 == 7 {
+                result.push('\n');
+            }
+        }
+
+        write!(f, "{}", result)
     }
 }
