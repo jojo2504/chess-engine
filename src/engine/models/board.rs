@@ -153,7 +153,7 @@ impl TryFrom<i32> for File {
 
 /// Reprensents one of the two piece's color
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum Color {
+pub enum Color {
     /// Used to represent the white pieces or white turn.
     White,
     /// Used to represent the black pieces or black turn.
@@ -307,13 +307,14 @@ impl Chessboard {
     }
 
     /// Get the type of piece at the square
-    /// with the raw offset relative to the LSB of the bitboard.
+    /// with the offset relative to the position of the chessboard (A1 is the LSB).
     /// 
-    /// For example, `offset = 0` means the square `H1`, `offset = 1` means `G1`, and so on.
-    pub(crate) fn get_piece_at_raw_offset(&self, offset: u64) -> (Option<Piece>, Color) {
+    /// For example, `offset = 0` means the square `A1`, `offset = 1` means `B1`, and so on.
+    #[warn(clippy::unwrap_used)]
+    pub fn get_piece_at_square(&self, offset: i32) -> (Option<Piece>, Color) {
         for piece in 0..12 {
             let p = Piece::try_from(piece as i32 % 6 as i32).unwrap();
-            let board = self.pieces[piece];
+            let board = self.pieces[piece]; 
             if (1 << offset) & board != 0 {
                 if piece > 5 {
                     return (Some(p), Color::White);
@@ -324,19 +325,6 @@ impl Chessboard {
         }
 
         (None, Color::White)
-    }
-
-    /// Get the type of piece at the square
-    /// with the offset relative to the position of the chessboard (A1 is the LSB).
-    /// 
-    /// For example, `offset = 0` means the square `A1`, `offset = 1` means `B1`, and so on.
-    pub(crate) fn get_piece_at_square(&self, offset: u64) -> (Option<Piece>, Color) {
-        let i = offset;
-        let rank_start = i / 8 * 8;
-        let line_position = i % 8;
-        let reversed_index = rank_start + (7 - line_position);
-
-        self.get_piece_at_raw_offset(reversed_index)
     }
     
     /// Chessboard's constructor initialized with a custom fen value.
@@ -658,11 +646,8 @@ impl Default for Chessboard {
 impl fmt::Display for Chessboard {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
-        //let colors: Vec<Color> = vec![Color::White, Color::Black];
         for i in 0..64 {
-            //let r = flip_rank(i);
-            let r = i as u64;
-            match self.get_piece_at_square(r) {
+            match self.get_piece_at_square(i) {
                 (Some(piece), color) => {
                     let mut c = char::from(piece);
                     if color == Color::White {
