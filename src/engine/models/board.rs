@@ -395,7 +395,7 @@ impl Chessboard {
             return Err("Invalid position information detected.");
         }
         for rank in ranks {
-            for i in 0..rank.len() - 1 {
+            for i in (0..rank.len()).rev() {
                 let letter = rank.chars().nth(i).expect("Out-of-bounds error when parsing rank.");
                 if letter.is_numeric() {
                     let n_letter = letter.to_digit(10).unwrap();
