@@ -314,7 +314,7 @@ impl Chessboard {
         for piece in 0..12 {
             let p = Piece::try_from(piece as i32 % 6 as i32).unwrap();
             let board = self.pieces[piece];
-            if (1 << offset as u64) & board != 0 {
+            if (1 << offset) & board != 0 {
                 if piece > 5 {
                     return (Some(p), Color::White);
                 } else {
