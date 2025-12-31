@@ -441,6 +441,10 @@ impl Chessboard {
         self.pieces[color as usize * 6 + piece as usize]
     }
 
+    /// Returns the bitboard corresponding to the piece and its color.
+    /// 
+    /// This is used when toggling or sliding pieces, since these methods
+    /// do **not** save modified bitboards.
     #[inline]
     pub(crate) fn set_piece(&mut self, color: Color, piece: Piece, bitboard: u64) {
         self.pieces[color as usize * 6 + piece as usize] = bitboard;
