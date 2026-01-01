@@ -6,8 +6,8 @@
 use crate::engine::models::{piece::Piece};
 
 /// Quick enum to match move kinds
-#[derive(Debug, Clone, Copy)]
-enum MoveKind {
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) enum MoveKind {
     QuietMoves = 0,
     DoublePawnPush = 1,
     KingCastle = 2,
@@ -22,6 +22,29 @@ enum MoveKind {
     BishopPromotionCapture = 13,
     RookPromotionCapture = 14,
     QueenPromotionCapture = 15
+}
+
+impl TryFrom<u8> for MoveKind {
+    type Error = String;
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            0 => Ok(MoveKind::QuietMoves),
+            1 => Ok(MoveKind::DoublePawnPush),
+            2 => Ok(MoveKind::KingCastle),
+            3 => Ok(MoveKind::QueenCastle),
+            4 => Ok(MoveKind::Captures),
+            5 => Ok(MoveKind::EpCapture),
+            8 => Ok(MoveKind::KnightPromotion),
+            9 => Ok(MoveKind::BishopPromotion),
+            10 => Ok(MoveKind::RookPromotion),
+            11 => Ok(MoveKind::QueenPromotion),
+            12 => Ok(MoveKind::KnightPromotionCapture),
+            13 => Ok(MoveKind::BishopPromotionCapture),
+            14 => Ok(MoveKind::RookPromotionCapture),
+            15 => Ok(MoveKind::QueenPromotionCapture),
+            _ => Err(format!("Invalid MoveKind code: {}", value))
+        }
+    }
 }
 
 /// All data needed to encode one move.
@@ -69,6 +92,10 @@ impl Move {
     #[inline]
     pub(crate) fn move_kind_code(&self) -> u8 {
         (self.word & 0b1111) as u8
+    }
+
+    pub(crate) fn move_kind(&self) -> MoveKind {
+        MoveKind::try_from(self.move_kind_code()).unwrap()
     }
     
     /// Checks if the move is a `castle`.

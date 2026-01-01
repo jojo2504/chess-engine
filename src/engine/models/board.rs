@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::str::FromStr;
 use serde::Deserialize;
-use crate::engine::models::{r#move::Move, piece::{Bishop, King, Knight, Pawn, Piece, Rook, SuperPiece}, state::State};
+use crate::engine::models::{r#move::{Move, MoveKind}, piece::{Bishop, King, Knight, Pawn, Piece, Rook, SuperPiece}, state::State};
 
 /// Represents a board rank, or horizontal line. `A1..H1`
 #[allow(missing_docs)]
@@ -158,6 +158,16 @@ pub enum Color {
     White,
     /// Used to represent the black pieces or black turn.
     Black
+}
+
+impl Color {
+    /// Swap color from white to black and vice-versa.
+    pub fn swap(self) -> Color {
+        match self {
+            Color::White => Color::Black,
+            Color::Black => Color::White,
+        }
+    }
 }
 
 /// Constant values of a board state.
@@ -467,7 +477,19 @@ impl Chessboard {
             Color::Black => self.black_pieces,
         }
     }
-    
+
+    /// Returns the piece index for indexing `self.pieces`.
+    #[inline]
+    pub(crate) fn get_piece_index(&self, color: Color, piece: Piece) -> usize {
+        color as usize * 6 + piece as usize
+    }
+
+    /// Returns the piece index for indexing `self.pieces` using a raw piece type index.
+    #[inline]
+    pub(crate) fn get_piece_index_raw(&self, color: Color, piece_type: usize) -> usize {
+        color as usize * 6 + piece_type
+    }
+
     // ? Not sure if we keep it
     /// Quick checks before expensive castling computation
     pub(crate) fn should_check_castling(&self) -> bool {
@@ -583,12 +605,65 @@ impl Chessboard {
     }
     
     /// Unmake a move on the chessboard itself.
-    pub(crate) fn unmake(&mut self, r#move: &Move) {
-        todo!()
+    pub(crate) fn unmake(&mut self, _move: &Move) {
+        self.state = self.state_stack[self.ply_index];
+        self.ply_index -= 1;
+
+        if _move.promotion_flag() {
+            if _move.capture_flag() {
+                self.toggle_piece(&mut self.pieces[self.get_piece_index_raw(self.state.turn_color.swap(), self.state.captured_piece.unwrap() as usize)], _move.to, self.state.turn_color);
+            }
+
+            for i in 0..6 {
+                if (self.pieces[self.get_piece_index_raw(self.state.turn_color, i)] & _move.to) != 0 {
+                    self.toggle_piece(&mut self.pieces[self.get_piece_index_raw(self.state.turn_color, i)], _move.to, self.state.turn_color);
+                    break;
+                }
+            }
+
+            self.toggle_piece(&mut self.pieces[self.get_piece_index(self.state.turn_color, Piece::Pawn)], _move.from, self.state.turn_color);
+        }
+
+        else if _move.castle_flag() {
+            self.slide_piece(&mut self.get_piece(self.state.turn_color, Piece::King), _move.to, _move.from, self.state.turn_color);
+            
+            match _move.move_kind() {
+                MoveKind::KingCastle => {
+                    match self.state.turn_color {
+                        Color::White => self.slide_piece(&mut self.get_piece(Color::White, Piece::Rook), Square::F1.bitboard(), Square::H1.bitboard(), Color::White),
+                        Color::Black => self.slide_piece(&mut self.get_piece(Color::Black, Piece::Rook), Square::F8.bitboard(), Square::H8.bitboard(), Color::Black)
+                    }
+                },
+                MoveKind::QueenCastle => {
+                    match self.state.turn_color {
+                        Color::White => self.slide_piece(&mut self.get_piece(Color::White, Piece::Rook), Square::D1.bitboard(), Square::A1.bitboard(), Color::White),
+                        Color::Black => self.slide_piece(&mut self.get_piece(Color::Black, Piece::Rook), Square::D8.bitboard(), Square::A8.bitboard(), Color::Black)
+                    }
+                },
+                _ => unreachable!()
+            }
+        }
+
+        else if _move.move_kind() == MoveKind::EpCapture {
+            self.slide_piece(&mut self.get_piece(self.state.turn_color, Piece::Pawn), _move.to, _move.from, self.state.turn_color);
+            match self.state.turn_color {
+                Color::White => self.toggle_piece(&mut self.get_piece(Color::Black, Piece::Pawn), _move.to >> 8, Color::Black),
+                Color::Black => self.toggle_piece(&mut self.get_piece(Color::White, Piece::Pawn), _move.to << 8, Color::White)
+            }
+        }
+        
+        else {
+            let last_moved_piece = &mut self.pieces[self.get_piece_index(self.state.turn_color, _move.piece_type)];
+            self.slide_piece(last_moved_piece, _move.to, _move.from, self.state.turn_color);
+
+            if let Some(captured_piece) = self.state.captured_piece {
+                self.toggle_piece(&mut self.pieces[self.get_piece_index(self.state.turn_color.swap(), captured_piece)], _move.to, self.state.turn_color.swap());
+            }
+        }
     }
     
     /// Checks if the current tested side king is in check or not
-    pub(crate) fn is_in_check(&self, side: Color) -> bool {
+    pub(crate) fn is_in_check(&mut self, side: Color) -> bool {
         todo!()
     }
 
