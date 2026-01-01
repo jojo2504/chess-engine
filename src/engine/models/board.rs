@@ -338,7 +338,7 @@ impl Chessboard {
             let p = Piece::try_from(piece as i32 % 6 as i32).unwrap();
             let board = self.pieces[piece]; 
             if (1 << offset) & board != 0 {
-                if piece > 5 {
+                if piece < 6 {
                     return (Some(p), Color::White);
                 } else {
                     return (Some(p), Color::Black);
@@ -349,7 +349,7 @@ impl Chessboard {
         (None, Color::White)
     }
     
-    /// Chessboard's constructor initialized with a custom fen value.
+    /// Chessboard's constructor initialized with a custom fen value.1
     pub fn from_fen(fen: &str) -> Result<Self, &str> {
         // Initialize variables
         let mut chessboard = Chessboard::default();
@@ -716,23 +716,23 @@ impl Default for Chessboard {
 impl fmt::Display for Chessboard {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
-        for i in 0..64 {
-            match self.get_piece_at_square(i) {
-                (Some(piece), color) => {
-                    let mut c = char::from(piece);
-                    if color == Color::White {
-                        c = c.to_ascii_uppercase();
+        for rank in (0..8).rev() {
+            for file in 0..8 {
+                let i = rank * 8 + file;
+                match self.get_piece_at_square(i) {
+                    (Some(piece), color) => {
+                        let mut c = char::from(piece);
+                        if color == Color::White {
+                            c = c.to_ascii_uppercase();
+                        }
+                        result.push(c);
+                    },
+                    (None, _) => {
+                        result.push('.')
                     }
-                    result.push(c);
-                },
-                (None, _) => {
-                    result.push('.')
                 }
             }
-
-            if i % 8 == 7 {
-                result.push('\n');
-            }
+            result.push('\n');
         }
 
         write!(f, "{}", result)
