@@ -277,6 +277,18 @@ impl FromStr for Square {
     }
 }
 
+/// Returns the piece index for indexing `self.pieces`.
+#[inline]
+pub(crate) fn get_piece_index(color: Color, piece: Piece) -> usize {
+    color as usize * 6 + piece as usize
+}
+
+/// Returns the piece index for indexing `self.pieces` using a raw piece type index.
+#[inline]
+pub(crate) fn get_piece_index_raw(color: Color, piece_type: usize) -> usize {
+    color as usize * 6 + piece_type
+}
+
 /// ```txt
 /// |r|n|b|q|k|b|n|r|
 /// |p|p|p|p|p|p|p|p|
@@ -433,8 +445,7 @@ impl Chessboard {
                     overall_index_square += n_letter;
                 } else if let Some((_color, _piece)) = raw_piece_to_type.get(&letter) {
                     let index: usize = 63_usize - overall_index_square as usize;
-                    let mut board = chessboard.get_piece(*_color, *_piece);
-                    chessboard.toggle_piece( &mut board, 1 << index, *_color, *_piece);
+                    chessboard.toggle_piece(get_piece_index(*_color, *_piece), 1 << index, *_color, *_piece);
                     overall_index_square += 1;
                 }
             }
@@ -475,18 +486,6 @@ impl Chessboard {
             Color::White => self.white_pieces,
             Color::Black => self.black_pieces,
         }
-    }
-
-    /// Returns the piece index for indexing `self.pieces`.
-    #[inline]
-    pub(crate) fn get_piece_index(&self, color: Color, piece: Piece) -> usize {
-        color as usize * 6 + piece as usize
-    }
-
-    /// Returns the piece index for indexing `self.pieces` using a raw piece type index.
-    #[inline]
-    pub(crate) fn get_piece_index_raw(&self, color: Color, piece_type: usize) -> usize {
-        color as usize * 6 + piece_type
     }
 
     // ? Not sure if we keep it
@@ -580,24 +579,21 @@ impl Chessboard {
     /// chessboard.toggle_piece(&mut chessboard.get_piece(Color::White, Piece::Pawn), Square::A2.bitboard(), Color::White);
     /// ```
     #[inline]
-    pub(crate) fn slide_piece(&mut self, piece_bitboard: &mut u64, from: u64, to: u64, side: Color, piece: Piece) {
-        
-        *piece_bitboard ^= from ^ to;
+    pub(crate) fn slide_piece(&mut self, piece_index: usize, from: u64, to: u64, side: Color, piece: Piece) {
+        self.pieces[piece_index] ^= from ^ to;
         match side {
             Color::White => self.white_pieces ^= from ^ to,
             Color::Black => self.black_pieces ^= from ^ to,
         }
-        self.set_piece(side, piece, *piece_bitboard);
     }
 
     /// Use this method when required to put a piece without moving one or removing a piece, like during game initialization, captures or promotions.
-    pub(crate) fn toggle_piece(&mut self, piece_bitboard: &mut u64, square: u64, side: Color, piece: Piece) {
-        *piece_bitboard ^= square;
+    pub(crate) fn toggle_piece(&mut self, piece_index: usize, square: u64, side: Color, piece: Piece) {
+        self.pieces[piece_index] ^= square;
         match side {
             Color::White => self.white_pieces ^= square,
             Color::Black => self.black_pieces ^= square,
         }
-        self.set_piece(side, piece, *piece_bitboard);
     }
 
     /// Make a move on the chessboard itself.
@@ -612,33 +608,35 @@ impl Chessboard {
 
         if _move.promotion_flag() {
             if _move.capture_flag() {
-                self.toggle_piece(&mut self.pieces[self.get_piece_index_raw(self.state.turn_color.swap(), self.state.captured_piece.unwrap() as usize)], _move.to, self.state.turn_color);
+                if let Some(captured_piece) = self.state.captured_piece {
+                    self.toggle_piece(get_piece_index(self.state.turn_color.swap(), captured_piece), _move.to, self.state.turn_color, captured_piece);
+                }
             }
 
             for i in 0..6 {
-                if (self.pieces[self.get_piece_index_raw(self.state.turn_color, i)] & _move.to) != 0 {
-                    self.toggle_piece(&mut self.pieces[self.get_piece_index_raw(self.state.turn_color, i)], _move.to, self.state.turn_color);
+                if (self.pieces[get_piece_index_raw(self.state.turn_color, i)] & _move.to) != 0 {
+                    self.toggle_piece(get_piece_index_raw(self.state.turn_color, i), _move.to, self.state.turn_color, Piece::try_from(i as i32).unwrap());
                     break;
                 }
             }
 
-            self.toggle_piece(&mut self.pieces[self.get_piece_index(self.state.turn_color, Piece::Pawn)], _move.from, self.state.turn_color);
+            self.toggle_piece(get_piece_index(self.state.turn_color, Piece::Pawn), _move.from, self.state.turn_color, Piece::Pawn);
         }
 
         else if _move.castle_flag() {
-            self.slide_piece(&mut self.get_piece(self.state.turn_color, Piece::King), _move.to, _move.from, self.state.turn_color);
+            self.slide_piece(get_piece_index(self.state.turn_color, Piece::King), _move.to, _move.from, self.state.turn_color, Piece::King);
             
             match _move.move_kind() {
                 MoveKind::KingCastle => {
                     match self.state.turn_color {
-                        Color::White => self.slide_piece(&mut self.get_piece(Color::White, Piece::Rook), Square::F1.bitboard(), Square::H1.bitboard(), Color::White),
-                        Color::Black => self.slide_piece(&mut self.get_piece(Color::Black, Piece::Rook), Square::F8.bitboard(), Square::H8.bitboard(), Color::Black)
+                        Color::White => self.slide_piece(get_piece_index(Color::White, Piece::Rook), Square::F1.bitboard(), Square::H1.bitboard(), Color::White, Piece::Rook),
+                        Color::Black => self.slide_piece(get_piece_index(Color::Black, Piece::Rook), Square::F8.bitboard(), Square::H8.bitboard(), Color::Black, Piece::Rook)
                     }
                 },
                 MoveKind::QueenCastle => {
                     match self.state.turn_color {
-                        Color::White => self.slide_piece(&mut self.get_piece(Color::White, Piece::Rook), Square::D1.bitboard(), Square::A1.bitboard(), Color::White),
-                        Color::Black => self.slide_piece(&mut self.get_piece(Color::Black, Piece::Rook), Square::D8.bitboard(), Square::A8.bitboard(), Color::Black)
+                        Color::White => self.slide_piece(get_piece_index(Color::White, Piece::Rook), Square::D1.bitboard(), Square::A1.bitboard(), Color::White, Piece::Rook),
+                        Color::Black => self.slide_piece(get_piece_index(Color::Black, Piece::Rook), Square::D8.bitboard(), Square::A8.bitboard(), Color::Black, Piece::Rook)
                     }
                 },
                 _ => unreachable!()
@@ -646,19 +644,18 @@ impl Chessboard {
         }
 
         else if _move.move_kind() == MoveKind::EpCapture {
-            self.slide_piece(&mut self.get_piece(self.state.turn_color, Piece::Pawn), _move.to, _move.from, self.state.turn_color);
+            self.slide_piece(get_piece_index(self.state.turn_color, Piece::Pawn), _move.to, _move.from, self.state.turn_color, Piece::Pawn);
             match self.state.turn_color {
-                Color::White => self.toggle_piece(&mut self.get_piece(Color::Black, Piece::Pawn), _move.to >> 8, Color::Black),
-                Color::Black => self.toggle_piece(&mut self.get_piece(Color::White, Piece::Pawn), _move.to << 8, Color::White)
+                Color::White => self.toggle_piece(get_piece_index(Color::Black, Piece::Pawn), _move.to >> 8, Color::Black, Piece::Pawn),
+                Color::Black => self.toggle_piece(get_piece_index(Color::White, Piece::Pawn), _move.to << 8, Color::White, Piece::Pawn)
             }
         }
         
         else {
-            let last_moved_piece = &mut self.pieces[self.get_piece_index(self.state.turn_color, _move.piece_type)];
-            self.slide_piece(last_moved_piece, _move.to, _move.from, self.state.turn_color);
+            self.slide_piece(get_piece_index(self.state.turn_color, _move.piece_type), _move.to, _move.from, self.state.turn_color, _move.piece_type);
 
             if let Some(captured_piece) = self.state.captured_piece {
-                self.toggle_piece(&mut self.pieces[self.get_piece_index(self.state.turn_color.swap(), captured_piece)], _move.to, self.state.turn_color.swap());
+                self.toggle_piece(get_piece_index(self.state.turn_color.swap(), captured_piece), _move.to, self.state.turn_color.swap(), captured_piece);
             }
         }
     }
@@ -669,18 +666,15 @@ impl Chessboard {
     }
 
     /// Generate all **SPEUDO LEGAL** moves for a given piece and color, updating the `all_pseudo_legal_moves` vector at the same time.
-    fn get_all_possible_piece_moves(&self, side: Color, piece: Piece, all_pseudo_legal_moves: &mut Vec<Move>, move_count: &mut usize) {
+    fn get_all_possible_piece_moves(&self, side: Color, piece: Piece, all_pseudo_legal_moves: &mut Vec<Move>) {
         todo!()
     }
     
     /// Generate all **SPEUDO LEGAL** moves, updating the `all_pseudo_legal_moves` vector at the same time and returning the number of distinct **SPEUDO LEGAL** moves.
-    fn generate_moves(&self, all_pseudo_legal_moves: &mut Vec<Move>) -> usize {
-        let mut move_count: usize = 0;
+    fn generate_moves(&self, all_pseudo_legal_moves: &mut Vec<Move>) {
         for i in 0..6 {
-            self.get_all_possible_piece_moves(self.state.turn_color, Piece::try_from(i).unwrap(), all_pseudo_legal_moves, &mut move_count);
+            self.get_all_possible_piece_moves(self.state.turn_color, Piece::try_from(i).unwrap(), all_pseudo_legal_moves);
         }
-
-        move_count
     }
     
     /// Performs a `perft` performance and debugging test returning the total number of positions at the end
@@ -691,15 +685,15 @@ impl Chessboard {
 
         let mut all_pseudo_legal_moves: Vec<Move> = Vec::with_capacity(256);
         let mut nodes = 0;
-        
 
-        let n_moves: usize = self.generate_moves(&mut all_pseudo_legal_moves);
-        for i in 0..n_moves {
-            self.make(&all_pseudo_legal_moves[i]);
+        self.generate_moves(&mut all_pseudo_legal_moves);
+        let n_moves = all_pseudo_legal_moves.len();
+        for _move in all_pseudo_legal_moves.iter().take(n_moves) {
+            self.make(_move);
             if !self.is_in_check(self.state_stack[self.ply_index].turn_color) {
                 nodes += self.perft(depth - 1);
             }
-            self.unmake(&all_pseudo_legal_moves[i]);
+            self.unmake(_move);
         }
 
         nodes
