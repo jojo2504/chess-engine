@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::str::FromStr;
 use serde::Deserialize;
-use crate::engine::models::{r#move::{Move, MoveKind}, piece::{Bishop, King, Knight, Pawn, Piece, Rook, SuperPiece}, state::State};
+use crate::engine::{models::{r#move::{Move, MoveKind}, piece::{Bishop, King, Knight, Pawn, Piece, Rook, SuperPiece}, state::State}};
 
 /// Represents a board rank, or horizontal line. `A1..H1`
 #[allow(missing_docs)]
@@ -662,41 +662,8 @@ impl Chessboard {
     
     /// Checks if the current tested side king is in check or not
     pub(crate) fn is_in_check(&mut self, side: Color) -> bool {
-        todo!()
-    }
-
-    /// Generate all **SPEUDO LEGAL** moves for a given piece and color, updating the `all_pseudo_legal_moves` vector at the same time.
-    fn get_all_possible_piece_moves(&self, side: Color, piece: Piece, all_pseudo_legal_moves: &mut Vec<Move>) {
-        todo!()
-    }
-    
-    /// Generate all **SPEUDO LEGAL** moves, updating the `all_pseudo_legal_moves` vector at the same time and returning the number of distinct **SPEUDO LEGAL** moves.
-    fn generate_moves(&self, all_pseudo_legal_moves: &mut Vec<Move>) {
-        for i in 0..6 {
-            self.get_all_possible_piece_moves(self.state.turn_color, Piece::try_from(i).unwrap(), all_pseudo_legal_moves);
-        }
-    }
-    
-    /// Performs a `perft` performance and debugging test returning the total number of positions at the end
-    pub fn perft(&mut self, depth: u8) -> u64 {
-        if depth == 0 {
-            return 1u64;
-        }
-
-        let mut all_pseudo_legal_moves: Vec<Move> = Vec::with_capacity(256);
-        let mut nodes = 0;
-
-        self.generate_moves(&mut all_pseudo_legal_moves);
-        let n_moves = all_pseudo_legal_moves.len();
-        for _move in all_pseudo_legal_moves.iter().take(n_moves) {
-            self.make(_move);
-            if !self.is_in_check(self.state_stack[self.ply_index].turn_color) {
-                nodes += self.perft(depth - 1);
-            }
-            self.unmake(_move);
-        }
-
-        nodes
+        let king = self.get_piece(side, Piece::King);
+        self.is_square_attacked_by_color(king, side.swap())
     }
 }
 
