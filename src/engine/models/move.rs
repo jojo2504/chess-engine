@@ -3,7 +3,9 @@
 #![warn(clippy::missing_docs_in_private_items)]
 #![deny(clippy::unwrap_used, clippy::expect_used)]
 
-use crate::engine::models::{piece::Piece};
+use core::fmt;
+
+use crate::engine::models::{board::{Chessboard, Square, get_piece_index_raw}, piece::{Pawn, Piece}};
 
 /// Quick enum to match move kinds
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -94,6 +96,57 @@ impl Move {
         (self.word & 0b1111) as u8
     }
 
+    /// oui
+    pub(crate) fn uci_move_kind_code(from: u64, to: u64, chessboard: &Chessboard, promotion_char: Option<char>) -> u8 {
+        let to_square = Square::try_from(to.trailing_zeros() as u64).unwrap();
+
+        let mut smc = if let Some(character) = promotion_char {
+            Pawn::get_promotion_map()[&character]
+        }
+        else {
+            MoveKind::QuietMoves as u8
+        };
+
+        for piece_type_index in 0..6 {
+            if (chessboard.pieces[get_piece_index_raw(chessboard.state.turn_color, piece_type_index)] & from) != 0 {
+                if to & chessboard.get_all_pieces() != 0 {
+                    smc = MoveKind::Captures as u8;
+                    if let Some(character) = promotion_char {
+                        smc += Pawn::get_promotion_map()[&character]
+                    }
+                }
+                else {
+                    match Piece::try_from(piece_type_index as i32).unwrap() {
+                        Piece::Pawn => {
+                            let distance = from.trailing_zeros().abs_diff(to.trailing_zeros());
+                            if (distance == 7 || distance == 9) && ((to & chessboard.get_all_pieces()) != 0) {
+                                smc = MoveKind::EpCapture as u8;
+                            }
+                            break;
+                        },
+                        Piece::King => {
+                            if from.trailing_zeros().abs_diff(to.trailing_zeros()) == 2 {
+                                if to_square == Square::C1 || to_square == Square::C8 {
+                                    smc = MoveKind::QueenCastle as u8;
+                                }
+                                else if to_square == Square::G1 || to_square == Square::G8 {
+                                    smc = MoveKind::KingCastle as u8;
+                                }
+                            }
+                            break;
+                        },
+                        _ => {
+    
+                        }
+                    }
+                }
+                break;
+            }
+        }
+
+        smc 
+    }
+
     /// Returns the [MoveKind] of the move.
     pub(crate) fn move_kind(&self) -> MoveKind {
         #[allow(clippy::unwrap_used, reason="Infallible")]
@@ -123,12 +176,56 @@ impl Move {
     }
     
     /// Decodes incoming uci encoded move into a `Move` object.
-    pub(crate) fn decode_uci() -> Move {
-        todo!()
+    pub(crate) fn decode_uci(uci_move: &str, chessboard: &Chessboard) -> Result<Move, String> {
+        if uci_move.len() < 4 {
+            return Err("UCI move must be at least 4 characters".to_string());
+        }
+        
+        let promotion_char = if uci_move.len() == 5 {
+            Some(uci_move.chars().nth(4).ok_or("Invalid promotion character")?)
+        } else {
+            None
+        };
+        
+        let chars: Vec<char> = uci_move.chars().collect();
+        
+        // Parse from square
+        let from_file = (chars[0] as u8).checked_sub(b'a').ok_or("Invalid from file")?;
+        let from_rank = (chars[1] as u8).checked_sub(b'1').ok_or("Invalid from rank")?;
+        let from_square = (from_rank * 8 + from_file) as u16;
+        
+        // Parse to square
+        let to_file = (chars[2] as u8).checked_sub(b'a').ok_or("Invalid to file")?;
+        let to_rank = (chars[3] as u8).checked_sub(b'1').ok_or("Invalid to rank")?;
+        let to_square = (to_rank * 8 + to_file) as u16;
+        
+        let from_bitboard = 1u64 << from_square;
+        let to_bitboard = 1u64 << to_square;
+        
+        // Build the move word
+        let mut word = (from_square << 10) | (to_square << 4);
+        
+        // Determine the special move code
+        word |= Self::uci_move_kind_code(from_bitboard, to_bitboard, chessboard, promotion_char) as u16;
+        
+        // Find which piece is on the from square
+        for piece_type_index in 0..6 {
+            if (chessboard.pieces[get_piece_index_raw(chessboard.state.turn_color, piece_type_index)] & from_bitboard) != 0 {
+                return Ok(Move::from(word, Piece::try_from(piece_type_index as i32).unwrap()));
+            }
+        }
+        
+        Err(format!("Could not find piece for move {} on board", uci_move))
     }
-    
-    /// Used by UCI to decode a move from a string when played from the GUI.
-    pub(crate) fn get_move_kind() {
-        todo!()
+}
+
+impl fmt::Display for Move {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let from = Square::try_from(self.from);
+        let to = Square::try_from(self.to);
+        if let Ok(from) = from && let Ok(to) = to {
+            write!(f, "{:?}{:?}", from, to)?
+        }
+        Ok(())
     }
 }

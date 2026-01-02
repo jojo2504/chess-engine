@@ -105,9 +105,10 @@ impl Engine<Connected> {
         todo!()
     }
 
-    pub fn start_self_uci_game(&self) {
+    /// Start a game against itself with by playing only random moves.
+    pub fn start_random_game(&self) {
         todo!()
-    }
+    } 
 }
 
 impl Engine {

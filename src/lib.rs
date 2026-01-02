@@ -19,4 +19,12 @@ mod tests {
 
         println!("{}", chessboard.pieces[get_piece_index(Color::White, Piece::King)])
     }
+
+    #[test]
+    fn convert_square() {
+        let index = 63;
+        let square = Square::try_from(index).unwrap();
+
+        println!("{:?}", square);
+    }
 }

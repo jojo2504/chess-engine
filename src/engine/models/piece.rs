@@ -3,9 +3,9 @@
 #![warn(clippy::missing_docs_in_private_items)]
 #![deny(clippy::unwrap_used, clippy::expect_used)]
 
-use std::sync::OnceLock;
+use std::{collections::HashMap, sync::OnceLock};
 
-use crate::engine::{magic::magic::Magic, models::board::{Board, Chessboard, Color, File, Rank}};
+use crate::engine::{magic::magic::Magic, models::{board::{Board, Chessboard, Color, File, Rank}, r#move::MoveKind}};
 
 /// Quick enum to match pieces
 #[allow(clippy::missing_docs_in_private_items)]
@@ -88,13 +88,18 @@ fn index_to_bitboard(index: i32, bits: u32, mut m: u64) -> u64 {
 ///   a pawn can attack from a given position.
 pub(crate) struct Pawn {
     /// Precomputed attack mask for every pawn position for both side, white then black.
-    pawn_attack_masks: [u64; 128]
+    pawn_attack_masks: [u64; 128],
+    promotion_map: HashMap<char, u8>
 }
 
 impl Pawn {
     /// Returns the precomputed attack masks for pawns.
     pub(crate) fn get_attack_mask() -> [u64; 128] {
         pawn().pawn_attack_masks
+    }
+
+    pub(crate) fn get_promotion_map() -> HashMap<char, u8> {
+        pawn().promotion_map.clone()
     }
 
     pub(crate) fn compute_possible_moves(location: u64, chessboard: &Chessboard, turn_color: Color) -> u64 {
@@ -144,7 +149,10 @@ impl Pawn {
 fn pawn() -> &'static Pawn {
     static PAWN: OnceLock<Pawn> = OnceLock::new();
     PAWN.get_or_init(|| {
-        let mut pawn = Pawn { pawn_attack_masks: [0; 128] };
+        let mut pawn = Pawn { 
+            pawn_attack_masks: [0; 128] ,
+            promotion_map: HashMap::new()
+        };
         
         let mut pawn_left_attack: u64;
         let mut pawn_right_attack: u64;
@@ -159,6 +167,11 @@ fn pawn() -> &'static Pawn {
             pawn_right_attack = (location & File::FileH.clear()) >> 7;
             pawn.pawn_attack_masks[i + 64] = pawn_left_attack | pawn_right_attack;
         }
+
+        pawn.promotion_map.insert('n', MoveKind::KnightPromotion as u8);
+        pawn.promotion_map.insert('b', MoveKind::BishopPromotion as u8);
+        pawn.promotion_map.insert('r', MoveKind::RookPromotion as u8);
+        pawn.promotion_map.insert('q', MoveKind::QueenPromotion as u8);
 
         pawn
     })
