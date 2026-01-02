@@ -94,7 +94,9 @@ impl Move {
         (self.word & 0b1111) as u8
     }
 
+    /// Returns the [MoveKind] of the move.
     pub(crate) fn move_kind(&self) -> MoveKind {
+        #[allow(clippy::unwrap_used, reason="Infallible")]
         MoveKind::try_from(self.move_kind_code()).unwrap()
     }
     
