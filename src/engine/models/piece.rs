@@ -48,16 +48,19 @@ impl From<Piece> for char {
     }
 }
 
+/// Removes and returns the index of the least significant set bit.
 fn pop_1st_bit(bitboard: &mut u64) -> u32 {
     let pos = bitboard.trailing_zeros();
     *bitboard &= *bitboard - 1_u64;  // Remove the rightmost bit
     pos
 }
 
+/// Transforms a bitboard into an index using a magic number.
 fn transform(bitboard: u64, magic: u64, bits: i32) -> i32 {
     ((bitboard * magic) >> (64 - bits)) as i32
 }
 
+/// Converts an index into a bitboard given a mask and number of bits.
 fn index_to_bitboard(index: i32, bits: u32, mut m: u64) -> u64 {
     let mut result = 0u64;
     let mut j;
@@ -98,10 +101,12 @@ impl Pawn {
         pawn().pawn_attack_masks
     }
 
+    /// Returns a precalculated char to byte move code hashmap.
     pub(crate) fn get_promotion_map() -> HashMap<char, u8> {
         pawn().promotion_map.clone()
     }
 
+    /// Compute possible moves for a given pawn and its color.
     pub(crate) fn compute_possible_moves(location: u64, chessboard: &Chessboard, turn_color: Color) -> u64 {
         match turn_color {
             Color::White => {
@@ -189,10 +194,21 @@ pub(crate) struct Knight {
 }
 
 impl Knight {
+    /// Returns the precomputed move masks for all squares.
     pub(crate) fn get_move_masks() -> [u64; 64] {
         knight().knight_move_masks
     }
 
+    /// Computes the possible moves for a knight at a given location,
+    /// taking into account the current board state and own pieces.
+    ///
+    /// # Arguments
+    /// * `location` - A bitboard with a single bit set for the knight's position.
+    /// * `chessboard` - The current chessboard state.
+    /// * `turn_color` - The color of the player whose turn it is.
+    ///
+    /// # Returns
+    /// A bitboard representing all legal destination squares for the knight.
     pub(crate) fn compute_possible_moves(location: u64, chessboard: &Chessboard, turn_color: Color) -> u64 {
         let own_side = chessboard.get_color_pieces(turn_color);
         knight().knight_move_masks[location.trailing_zeros() as usize] & !own_side
@@ -255,21 +271,27 @@ enum CastlingMasks {
     BlackQueenSideAttack = (1u64 << 60) | (1u64 << 59) | (1u64 << 58), // E8, D8, C8
 }
 
+/// Represents a King piece in chess with precomputed move generation data.
+///
+/// The knight moves 1 square in every direction, but can also do `Castle` moves.
 pub(crate) struct King {
     /// Precomputed attack mask for every king position.
     king_move_masks: [u64; 64],
 }
 
 impl King {
+    /// Returns the king move mask.
     pub(crate) fn get_move_masks() -> [u64; 64] {
         king().king_move_masks
     }
 
+    /// Compute and returns the possible king moves without overlapping its own pieces.
     pub(crate) fn compute_possible_moves(location: u64, chessboard: &Chessboard, turn_color: Color) -> u64 {
         let own_side = chessboard.get_color_pieces(turn_color);
         king().king_move_masks[location.trailing_zeros() as usize] & !own_side
     }
 
+    /// Compute the available castling square for a king depending on the chessboard's context and state.
     pub(crate) fn compute_possible_castling_moves(location: u64, chessboard: &Chessboard, turn_color: Color) -> u64 {
         let mut castle_king: u64 = 0;
         let mut castle_queen: u64 = 0;
@@ -377,6 +399,7 @@ impl Bishop {
         bishop().magic_bishop_attacks[sq][occ as usize]
     }
     
+    /// Compute the rays of the bishop from a given square and block mask
     fn batt(square: i32, block: u64) -> u64 {
         let mut result: u64 = 0u64;
         let rk = square / 8;
@@ -485,8 +508,11 @@ fn bishop() -> &'static Bishop {
 /// for efficient move generation, storing precomputed attack patterns for all possible
 /// blocker configurations.
 pub(crate) struct Rook {
+    /// Precomputed blocker mask for every rook position.
     rook_blocker_mask: [u64; 64],
+    /// Magic bitboard table for transforming occupancy to attack indices.
     rook_magic_table: Vec<Magic>,
+    /// Precomputed attack patterns indexed by square and magic-transformed occupancy.
     magic_rook_attacks: [[u64; 4096]; 64] 
 }
     
@@ -514,6 +540,7 @@ impl Rook {
         rook().magic_rook_attacks[sq][occ as usize]
     }
     
+    /// Compute the rays of the rook from a given square and block mask
     fn ratt(square: i32, block: u64) -> u64 {
         let mut result: u64 = 0u64;
         let rk = square / 8;
@@ -607,6 +634,7 @@ fn rook() -> &'static Rook {
 pub(crate) struct Queen;
 
 impl Queen {
+    /// Compute the possible moves for the [Queen].
     pub(crate) fn compute_possible_moves(location: u64, chessboard: &Chessboard, turncolor: Color) -> u64 {
         Rook::compute_possible_moves(location, chessboard, turncolor) | 
         Bishop::compute_possible_moves(location, chessboard, turncolor)
@@ -615,19 +643,28 @@ impl Queen {
 
 /// This special piece is used to help checking if a square is attacked by any piece, by casting its attack directly to them
 pub(crate) struct SuperPiece {
+    /// Rook-like rays for each square.
     rook_rays: [u64; 64],
-    bishop_rays: [u64; 64]
+    /// Bishop-like rays for each square.
+    bishop_rays: [u64; 64],
+    /// Knight attack masks for each square.
+    knight_rays: [u64; 64],
 }
 
 impl SuperPiece {
-    /// Returns an array of all rook rays for each square, simulating am empty board.
+    /// Returns an array of all rook rays for each square, simulating an empty board.
     pub(crate) fn rook_rays() -> [u64; 64] {
         super_piece().rook_rays
     }
     
-    /// Returns an array of all bishop rays for each square, simulating am empty board.
+    /// Returns an array of all bishop rays for each square, simulating an empty board.
     pub(crate) fn bishop_rays() -> [u64; 64] {
         super_piece().bishop_rays
+    }
+
+    /// Returns an array of all knight attack masks for each square.
+    pub(crate) fn knight_rays() -> [u64; 64] {
+        super_piece().knight_rays
     }
 }
 
@@ -638,11 +675,13 @@ fn super_piece() -> &'static SuperPiece {
         let mut super_piece = SuperPiece {
             rook_rays: [0; 64],
             bishop_rays: [0; 64],
+            knight_rays: [0; 64],
         };
 
         for i in 0..64 {
             super_piece.rook_rays[i] = Rook::ratt(i as i32, 0u64);
             super_piece.bishop_rays[i] = Bishop::batt(i as i32, 0u64);
+            super_piece.knight_rays[i] = Knight::get_move_masks()[i];
         }
 
         super_piece

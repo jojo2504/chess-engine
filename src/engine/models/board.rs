@@ -241,7 +241,7 @@ impl TryFrom<u64> for Square {
             return Err(format!("Index {} out of range (0-63)", index));
         }
         // Safe because we validated the range
-        Ok(unsafe { std::mem::transmute(index as u8) })
+        Ok(unsafe { std::mem::transmute::<u8, Square>(index as u8) })
     }
 }
 
