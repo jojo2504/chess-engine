@@ -19,6 +19,17 @@ pub enum Piece {
     King,
 }
 
+impl Piece {
+    pub const ALL: [Piece; 6] = [
+        Piece::Pawn,
+        Piece::Rook,
+        Piece::Knight,
+        Piece::Bishop,
+        Piece::Queen,
+        Piece::King,
+    ];
+}
+
 impl TryFrom<i32> for Piece {
     type Error = String;
 
