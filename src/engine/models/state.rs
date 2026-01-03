@@ -29,7 +29,7 @@ pub(crate) struct State {
     // Fields that doesn't affect restoration
     pub(crate) checkmated: bool,
     pub(crate) stalemated: bool,
-    pub(crate) zobrist_hash_key: u64 // Zobrist hash key for the position
+    pub(crate) zobrist_key: u64 // Zobrist hash key for the position
 }
 
 impl Default for State {
@@ -46,7 +46,7 @@ impl Default for State {
             captured_piece: None, 
             checkmated: false, 
             stalemated: false, 
-            zobrist_hash_key: 0 
+            zobrist_key: 0 
         }
     }
 }
