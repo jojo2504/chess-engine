@@ -170,6 +170,16 @@ impl Color {
     }
 }
 
+impl std::ops::BitXor<Color> for Color {
+    type Output = Color;
+    fn bitxor(self, rhs: Color) -> Color {
+        match (self as u8) ^ (rhs as u8) {
+            0 => Color::White,
+            _ => Color::Black,
+        }
+    }
+}
+
 /// Constant values of a board state.
 #[allow(clippy::upper_case_acronyms)]
 #[repr(u64)]
