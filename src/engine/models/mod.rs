@@ -6,3 +6,4 @@ pub(crate) mod state;
 pub mod board;
 /// Move generation and validation.
 pub(crate) mod r#move;
+mod zobrist;

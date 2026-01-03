@@ -80,6 +80,7 @@ dependencies = [
  "console",
  "criterion",
  "rand",
+ "rayon",
  "serde",
  "serde_json",
 ]

@@ -50,7 +50,7 @@ impl TryFrom<u8> for MoveKind {
 }
 
 /// All data needed to encode one move.
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Clone)]
 pub(crate) struct Move {
     /// The information required to uniquely describe a move is the initial square, also called from-, origin- or departure square, and the target square, 
     /// also called to- or destination square, and in case of promotions the promoted piece code. While this from-to information is also sufficient for castling

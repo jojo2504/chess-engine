@@ -7,7 +7,7 @@ pub(crate) fn pop_1st_bit(bitboard: &mut u64) -> u32 {
 
 /// Transforms a bitboard into an index using a magic number.
 pub(crate) fn transform(bitboard: u64, magic: u64, bits: i32) -> i32 {
-    ((bitboard * magic) >> (64 - bits)) as i32
+    (bitboard.wrapping_mul(magic) >> (64 - bits)) as i32
 }
 
 /// Converts an index into a bitboard given a mask and number of bits.

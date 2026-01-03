@@ -6,6 +6,7 @@ pub mod models;
 /// Core chess engine implementation and evaluation logic.
 #[allow(clippy::module_inception)]
 pub mod engine;
+pub mod search;
 pub use engine::Engine;
 /// Move generations module
 pub mod movegen;

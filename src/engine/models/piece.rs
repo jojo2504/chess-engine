@@ -9,7 +9,7 @@ use crate::{engine::{magic::Magic, models::{board::{Board, Chessboard, Color, Fi
 
 /// Quick enum to match pieces
 #[allow(clippy::missing_docs_in_private_items)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Piece {
     Pawn,
     Rook,
@@ -350,7 +350,7 @@ pub(crate) struct Bishop {
     /// Magic bitboard table for transforming occupancy to attack indices.
     bishop_magic_table: Vec<Magic>,
     /// Precomputed attack patterns indexed by square and magic-transformed occupancy.
-    magic_bishop_attacks: [[u64; 4096]; 64] 
+    magic_bishop_attacks: Box<[[u64; 4096]; 64]> 
 }
     
 impl Bishop {
@@ -368,7 +368,7 @@ impl Bishop {
         let mut occ = chessboard.get_all_pieces();
 
         occ &= bishop().bishop_magic_table[sq].mask;
-        occ *= bishop().bishop_magic_table[sq].magic_number;
+        occ = occ.wrapping_mul(bishop().bishop_magic_table[sq].magic_number);
         occ >>= 55; //64-9
 
         bishop().magic_bishop_attacks[sq][occ as usize]
@@ -429,7 +429,7 @@ fn bishop() -> &'static Bishop {
         let mut bishop = Bishop {
             bishop_blocker_mask: [0; 64],
             bishop_magic_table: Magic::load_magic_table("src/engine/magic/BMagicTable.json").expect("bishop magic table should be found here"),
-            magic_bishop_attacks: [[0; 4096]; 64] 
+            magic_bishop_attacks: Box::new([[0; 4096]; 64]) 
         };
 
         // init blocker mask
@@ -488,7 +488,7 @@ pub(crate) struct Rook {
     /// Magic bitboard table for transforming occupancy to attack indices.
     rook_magic_table: Vec<Magic>,
     /// Precomputed attack patterns indexed by square and magic-transformed occupancy.
-    magic_rook_attacks: [[u64; 4096]; 64] 
+    magic_rook_attacks: Box<[[u64; 4096]; 64]> 
 }
     
 impl Rook {
@@ -509,7 +509,7 @@ impl Rook {
         let mut occ = chessboard.get_all_pieces();
 
         occ &= rook().rook_magic_table[sq].mask;
-        occ *= rook().rook_magic_table[sq].magic_number;
+        occ = occ.wrapping_mul(rook().rook_magic_table[sq].magic_number);
         occ >>= 52; //64-12
 
         rook().magic_rook_attacks[sq][occ as usize]
@@ -558,7 +558,7 @@ fn rook() -> &'static Rook {
         let mut rook = Rook {
             rook_blocker_mask: [0; 64],
             rook_magic_table: Magic::load_magic_table("src/engine/magic/RMagicTable.json").expect("rook magic table should be found here"),
-            magic_rook_attacks: [[0; 4096]; 64] 
+            magic_rook_attacks: Box::new([[0; 4096]; 64]) 
         };
 
         // init blocker mask

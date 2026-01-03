@@ -299,6 +299,7 @@ pub(crate) fn get_piece_index_raw(color: Color, piece_type: usize) -> usize {
 /// |P|P|P|P|P|P|P|P|
 /// |R|N|B|Q|K|B|N|R|
 /// ```
+#[derive(Clone)]
 pub struct Chessboard {
     /// The 12 bitboards for each piece, starting with white then black, same order as [Piece].
     pub(crate) pieces: [u64; 12],
