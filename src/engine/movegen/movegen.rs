@@ -228,7 +228,7 @@ pub(crate) fn get_all_possible_piece_moves(
     }
 }
 
-/// Generate all **SPEUDO LEGAL** moves, updating the `all_pseudo_legal_moves` vector at the same time and returning the number of distinct **SPEUDO LEGAL** moves.
+/// Generate all **PSEUDO LEGAL** moves and return them into a vector.
 pub(crate) fn generate_moves(chessboard: &Chessboard) -> Vec<Move> {
     let mut all_pseudo_legal_moves = Vec::new();
     for i in 0..6 {
