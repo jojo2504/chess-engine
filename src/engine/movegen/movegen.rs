@@ -15,7 +15,7 @@ pub(crate) fn add_all_possible_moves_pawn(
     all_pseudo_legal_moves: &mut Vec<Move>,
 ) {
     let from_index = from.trailing_zeros();
-    let word_from = (from_index << 10) as u16;
+    let word_from = (from_index.trailing_zeros() << 10) as u16;
 
     while possible_moves != 0 {
         let to_index = possible_moves.trailing_zeros();
@@ -77,14 +77,14 @@ pub(crate) fn add_all_possible_moves_king(
     all_pseudo_legal_moves: &mut Vec<Move>,
 ) {
     let from_index = from.trailing_zeros();
-    let word_from = (1 << from_index) << 10;
+    let word_from = (1 << from_index.trailing_zeros()) << 10;
 
     while possible_moves != 0 {
         let to: u64 = 1 << possible_moves.trailing_zeros();
         let to_index = to.trailing_zeros();
         pop_1st_bit(&mut possible_moves);
 
-        let mut word: u16 = word_from | (1 << to_index) << 4;
+        let mut word: u16 = word_from | (1 << to_index.trailing_zeros()) << 4;
 
         if (from_index as i32 - to_index as i32).abs() == 2 {
             if to_index == 2 || to_index == 58 {
