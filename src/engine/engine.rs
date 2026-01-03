@@ -119,6 +119,7 @@ impl Engine {
     pub fn new() -> Engine {
         Engine {
             chessboard: Chessboard::new(),
+            search: Search::new(3),
             state: PhantomData::<NotConnected>
         }
     }
@@ -127,6 +128,7 @@ impl Engine {
     pub fn from_fen(fen: &str) -> Result<Engine, &str> {
         Ok(Engine {
             chessboard: Chessboard::from_fen(fen)?,
+            search: Search::new(3),
             state: PhantomData::<NotConnected>
         })
     }
