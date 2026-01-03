@@ -8,7 +8,7 @@ use std::marker::PhantomData;
 use anyhow::anyhow;
 use console::Term;
 
-use crate::engine::models::{board::Chessboard};
+use crate::engine::{models::board::Chessboard, search::Search};
 
 /// `Not Connected` State for the engine.
 pub struct NotConnected;
@@ -32,6 +32,7 @@ pub struct Connected;
 pub struct Engine<State = NotConnected> {
     /// Internal chessboard used to play by the engine itself.
     chessboard: Chessboard,
+    search: Search,
     /// State of the engine, refer to [NotConnected] and [Connected].
     state: PhantomData<State>
 }
@@ -62,6 +63,7 @@ impl Engine<NotConnected> {
 
         Ok(Engine { 
             chessboard: Chessboard::new(),
+            search: Search::new(3),
             state: PhantomData::<Connected> 
         })
     }
@@ -69,7 +71,7 @@ impl Engine<NotConnected> {
 
 impl Engine<Connected> {
     /// This method starts an UCI game, the engine or AI will return after each of its turn its corresponding "best move" as UCI encoding.
-    pub fn start_uci_game(&self) -> anyhow::Result<()> {
+    pub fn start_uci_game(&mut self) -> anyhow::Result<()> {
         loop {
             let input = Term::stdout().read_line()?;
             let mut parts = input.split(' ');
@@ -87,9 +89,10 @@ impl Engine<Connected> {
                     todo!("position update");
                 },
                 "go" => {
-                    todo!("implement best move search");
-                    // self.chessboard.make(_move);
-                    // println!("bestmove {}", _move)
+                    let best_move = self.search.think(&mut self.chessboard);
+                    if let Some(best_move) = best_move {
+                        println!("bestmove {}", best_move);
+                    }
                 },
                 _ => {
                     return Err(anyhow!("xd"));
