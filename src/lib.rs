@@ -1,4 +1,4 @@
-use crate::engine::{models::{board::Chessboard, r#move::Move}, movegen::generate_moves, search::Search};
+use crate::engine::{models::{board::Chessboard, r#move::{Move, MoveKind}}, movegen::generate_moves, search::Search};
 
 pub mod engine;
 pub mod utils;
@@ -17,8 +17,91 @@ pub fn perft(chessboard: &mut Chessboard, depth: u8) -> u64 {
         if !chessboard.is_in_check(chessboard.state_stack[chessboard.ply_index].turn_color) {
             nodes += perft(chessboard, depth - 1);
         }
+        println!("chessboard: \n{}", chessboard);
         chessboard.unmake(_move);
     }
+
+    nodes
+}
+
+pub fn draw_perft_tree(
+    chessboard: &mut Chessboard,
+    depth: u8,
+    indent: &str,
+) -> u64 {
+    if depth == 0 {
+        println!("{indent}└─ leaf: 1");
+        return 1;
+    }
+
+    let mut total_nodes = 0;
+
+    let all_pseudo_legal_moves = generate_moves(chessboard);
+    let n_moves = all_pseudo_legal_moves.len();
+
+    for (i, mv) in all_pseudo_legal_moves.iter().enumerate() {
+        let is_last_move = i + 1 == n_moves;
+        let branch = if is_last_move { "└─" } else { "├─" };
+        let new_indent = if is_last_move {
+            format!("{indent}   ")
+        } else {
+            format!("{indent}│  ")
+        };
+
+        println!(
+            "{indent}{branch} {:?} {} {:?}",
+            chessboard.state.turn_color,
+            mv,
+            MoveKind::try_from(mv.move_kind_code()).unwrap()
+        );
+
+        chessboard.make(mv);
+
+        let is_in_check =
+            chessboard.is_in_check(chessboard.state_stack[chessboard.ply_index].turn_color);
+
+        if !is_in_check {
+            let subtree_nodes = draw_perft_tree(chessboard, depth - 1, &new_indent);
+            total_nodes += subtree_nodes;
+        } else {
+            println!("{new_indent}└─ illegal (in check)");
+        }
+
+        chessboard.unmake(mv);
+    }
+
+    println!("{indent}└─ nodes: {total_nodes}");
+    total_nodes
+}
+
+/// Recursive perft tree that prints each move's subtree and total nodes
+pub fn perft_tree(chessboard: &mut Chessboard, depth: u8) -> u64 {
+    if depth == 0 {
+        return 1;
+    }
+
+    let mut nodes = 0;
+    
+    let all_pseudo_legal_moves = generate_moves(chessboard);
+    let n_moves = all_pseudo_legal_moves.len();
+
+    for mv in all_pseudo_legal_moves.iter().take(n_moves) {
+        chessboard.make(mv);
+
+        let in_check = chessboard.is_in_check(chessboard.state_stack[chessboard.ply_index].turn_color);
+        if !in_check {
+            let move_nodes = perft_tree(chessboard, depth - 1);
+            nodes += move_nodes;
+            chessboard.unmake(mv);
+            println!("{} {}", mv, move_nodes);
+        } else {
+            chessboard.unmake(mv);
+            println!("{} 0", mv);
+        }
+    }
+
+    println!();
+    println!("{}", nodes);
 
     nodes
 }
