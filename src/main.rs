@@ -3,7 +3,7 @@
 // #![warn(clippy::missing_docs_in_private_items)]
 // #![deny(clippy::unwrap_used, clippy::expect_used)]
 
-use lib::{draw_perft_tree, engine::models::board::Chessboard, perft, perft_tree, search_test};
+use lib::{draw_perft_tree, engine::models::board::Chessboard, perft, perft_to_file, perft_tree, search_test};
 use stats_alloc::{Region, StatsAlloc, INSTRUMENTED_SYSTEM};
 use std::{alloc::System, env};
 
@@ -27,7 +27,8 @@ fn main() -> anyhow::Result<()> {
     }
     else {
         println!("normal perft: ");
-        perft(&mut chessboard, 1);
+        // perft(&mut chessboard, 2);
+        perft_to_file(&mut chessboard, 3, "./a.txt");
     }
     Ok(())
 }

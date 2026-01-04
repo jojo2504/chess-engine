@@ -1001,8 +1001,8 @@ impl Chessboard {
     
     /// Unmake a move on the chessboard itself.
     pub(crate) fn unmake(&mut self, _move: &Move) {
-        self.state = self.state_stack[self.ply_index];
         self.ply_index -= 1;
+        self.state = self.state_stack[self.ply_index];
 
         if _move.promotion_flag() {
             if _move.capture_flag() {
