@@ -22,11 +22,10 @@ fn main() -> anyhow::Result<()> {
     // search_test();
     let mut args = env::args();
     if args.len() > 1 {
-        println!("perftree: ");
-        perft_tree(&mut chessboard, args.nth(1).unwrap().as_bytes()[0]);
+        let depth = FromStr::from_str(args.nth(1).unwrap().as_str()).unwrap();
+        perft_tree(&mut chessboard, depth);
     }
     else {
-        println!("normal perft: ");
         perft(&mut chessboard, 1);
     }
     Ok(())
