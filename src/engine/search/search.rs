@@ -57,8 +57,6 @@ impl Search {
         }
 
         let child_nodes = generate_moves(chessboard);
-
-        println!("AAAAAAAAAAAAAAAAAa");
         
         let mut best_score = i32::MIN;
         for child in &child_nodes {

@@ -109,7 +109,7 @@ pub(crate) fn add_all_possible_moves(
     piece: Piece,
     all_pseudo_legal_moves: &mut Vec<Move>,
 ) {
-    let word_from = (1u16 << from.trailing_zeros()) << 10;
+    let word_from: u16 = (from.trailing_zeros() as u16) << 10;
     while possible_moves != 0 {
         let to: u64 = 1 << possible_moves.trailing_zeros();
         pop_1st_bit(&mut possible_moves);
@@ -156,7 +156,6 @@ pub(crate) fn get_all_possible_piece_moves(
                 pop_1st_bit(&mut pieces);
 
                 _possible_moves = Rook::compute_possible_moves(from, chessboard, side);
-                println!("computed possible rook moves");
                 add_all_possible_moves(
                     from,
                     _possible_moves,

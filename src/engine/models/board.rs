@@ -321,7 +321,7 @@ pub struct Chessboard {
     /// Current state of the chessboard.
     pub(crate) state: State,
     /// Used to keep track of all previous and current states of the chessboard. 
-    pub(crate) state_stack: [State; 8192-1],
+    pub(crate) state_stack: Box<[State; 8192-1]>,
     /// Used to index the state_stack, representing the current ply, equivalent to a half-move.
     pub(crate) ply_index: usize
 }
@@ -967,7 +967,7 @@ impl Chessboard {
                 Piece::King => {
                     // moving the king cancels both castling rights
                     // TODO: remove .unwrap()
-                    let square_from = Square::try_from(mv.from).ok().unwrap();
+                    let square_from = Square::try_from(mv.from.trailing_zeros() as u64).ok().unwrap();
                     match square_from {
                         Square::E1 => {
                             self.state.can_white_king_castle = false;
@@ -985,8 +985,8 @@ impl Chessboard {
                     // double pawn push sets en passant square
                     if kind == Some(MoveKind::DoublePawnPush) {
                         self.state.en_passant_square = Some(match self.state.turn_color {
-                            Color::White => Square::try_from(mv.to >> 8).ok().unwrap(),
-                            Color::Black => Square::try_from(mv.to << 8).ok().unwrap(),
+                            Color::White => Square::try_from((mv.to >> 8).trailing_zeros() as u64).unwrap(),
+                            Color::Black => Square::try_from((mv.to << 8).trailing_zeros() as u64).unwrap(),
                         });
                     }
                 }
@@ -1072,7 +1072,7 @@ impl Default for Chessboard {
             white_pieces: 0u64,
             black_pieces: 0u64,
             state: State::default(),
-            state_stack: [State::default(); 8191],
+            state_stack: Box::new([State::default(); 8191]),
             ply_index: 0,
         }
     }

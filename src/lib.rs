@@ -27,6 +27,7 @@ pub fn search_test() {
     let mut chessboard = Chessboard::new();
     let mut search = Search::new(3);
     let best_move = search.think(&mut chessboard).unwrap();
+    println!("asd");
     println!("{}", best_move);
 }
 

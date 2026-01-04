@@ -221,11 +221,13 @@ impl Move {
 
 impl fmt::Display for Move {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let from = Square::try_from(self.from);
-        let to = Square::try_from(self.to);
+        let from = Square::try_from(self.from.trailing_zeros() as u64);
+        let to = Square::try_from(self.to.trailing_zeros() as u64);
         if let Ok(from) = from && let Ok(to) = to {
-            write!(f, "{:?}{:?}", from, to)?
+            write!(f, "{:?}{:?}", from, to)
         }
-        Ok(())
+        else {
+            Err(std::fmt::Error)
+        }
     }
 }
