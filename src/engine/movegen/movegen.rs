@@ -212,7 +212,7 @@ pub(crate) fn get_all_possible_piece_moves(
                     from,
                     _possible_moves,
                     chessboard.get_all_pieces(),
-                    Piece::King,
+                    Piece::Queen,
                     all_pseudo_legal_moves,
                 );
             }

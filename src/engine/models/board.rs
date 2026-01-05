@@ -3,11 +3,11 @@
 #![warn(clippy::missing_docs_in_private_items)]
 #![deny(clippy::unwrap_used, clippy::expect_used)]
 
-use std::collections::HashMap;
+use std::{collections::HashMap};
 use std::fmt;
 use std::str::FromStr;
 use serde::Deserialize;
-use crate::engine::{models::{r#move::{Move, MoveKind}, piece::{Bishop, King, Knight, Pawn, Piece, Rook, SuperPiece}, state::State}};
+use crate::{engine::models::{r#move::{Move, MoveKind}, piece::{Bishop, King, Knight, Pawn, Piece, Rook, SuperPiece}, state::State}};
 
 /// Represents a board rank, or horizontal line. `A1..H1`
 #[allow(missing_docs)]
@@ -515,25 +515,28 @@ impl Chessboard {
         // Check knight attacks
         let knights = self.get_piece(attacking_side, Piece::Knight);
         if (Knight::get_move_masks()[square_index] & knights) != 0 {
+            // println!("checked by knight");
             return true;
         }
 
         // Check rook and queen attacks (straight lines)
         let rooks_queens = self.get_piece(attacking_side, Piece::Queen) | 
-                          self.get_piece(attacking_side, Piece::Rook);
+        self.get_piece(attacking_side, Piece::Rook);
         if ((SuperPiece::rook_rays()[square_index] & rooks_queens) != 0)
-            && (Rook::rays(square, self) & rooks_queens) != 0 {
+        && ((Rook::compute_possible_moves(square, self, attacking_side.swap()) & rooks_queens) != 0) {
+            // println!("checked by rook queen");
             return true;
         }
-            
+        
         // Check bishop and queen attacks (diagonal)
         let bishops_queens = self.get_piece(attacking_side, Piece::Queen) |
-                            self.get_piece(attacking_side, Piece::Bishop);
+        self.get_piece(attacking_side, Piece::Bishop);
         if ((SuperPiece::bishop_rays()[square_index] & bishops_queens) != 0)
-            && ((Bishop::rays(square, self) & bishops_queens) != 0) {
+        && ((Bishop::compute_possible_moves(square, self, attacking_side.swap()) & bishops_queens) != 0) {
+            // println!("checked by bishop queen");
             return true;
         }
-
+        
         // Check pawn attacks
         let pawns = self.get_piece(attacking_side, Piece::Pawn);
         let opponent_color = match attacking_side {
@@ -541,12 +544,14 @@ impl Chessboard {
             Color::Black => Color::White,
         };
         if (Pawn::get_attack_mask()[(opponent_color as usize + 1) * square_index] & pawns) != 0 {
+            // println!("checked by pawn");
             return true;
         }
 
         // Check king attacks
         let king = self.get_piece(attacking_side, Piece::King);
         if (King::get_move_masks()[square_index] & king) != 0 {
+            // println!("checked by king");
             return true;
         }
 
@@ -560,10 +565,10 @@ impl Chessboard {
     pub(crate) fn any_attacked_squared_by_side(&self, mut squares: u64, attacking_side: Color) -> bool {
         while squares != 0 {
             let square = 1u64 << squares.trailing_zeros();
-            squares &= squares - 1;
             if self.is_square_attacked_by_color(square, attacking_side) {
                 return true;
             }
+            squares &= squares - 1;
         }
         false
     }
@@ -862,12 +867,11 @@ impl Chessboard {
 
                 for piece in Piece::ALL {
                     if self.is_opponent_case_occupied_for_piece(r#move, piece, self.state.turn_color) {
-                        self.remove_piece(
-                            get_piece_index(enemy_color, piece),
+                        self.toggle_piece(
+                            get_piece_index(self.state.turn_color.swap(), piece),
                             mv.to,
-                            enemy_color,
-                            piece
-                        );
+                            self.state.turn_color, 
+                            piece);
 
                         self.slide_piece(
                             get_piece_index(self.state.turn_color, mv.piece_type),
@@ -1001,10 +1005,11 @@ impl Chessboard {
     
     /// Unmake a move on the chessboard itself.
     pub(crate) fn unmake(&mut self, _move: &Move) {
-        self.state = self.state_stack[self.ply_index];
         self.ply_index -= 1;
+        self.state = self.state_stack[self.ply_index];
 
         if _move.promotion_flag() {
+            println!("promotion");
             if _move.capture_flag() {
                 if let Some(captured_piece) = self.state.captured_piece {
                     self.toggle_piece(get_piece_index(self.state.turn_color.swap(), captured_piece), _move.to, self.state.turn_color, captured_piece);
@@ -1022,6 +1027,7 @@ impl Chessboard {
         }
 
         else if _move.castle_flag() {
+            println!("castle");
             self.slide_piece(get_piece_index(self.state.turn_color, Piece::King), _move.to, _move.from, self.state.turn_color, Piece::King);
             
             match _move.move_kind() {
@@ -1042,6 +1048,7 @@ impl Chessboard {
         }
 
         else if _move.move_kind() == MoveKind::EpCapture {
+            println!("en passant");
             self.slide_piece(get_piece_index(self.state.turn_color, Piece::Pawn), _move.to, _move.from, self.state.turn_color, Piece::Pawn);
             match self.state.turn_color {
                 Color::White => self.toggle_piece(get_piece_index(Color::Black, Piece::Pawn), _move.to >> 8, Color::Black, Piece::Pawn),
@@ -1050,6 +1057,7 @@ impl Chessboard {
         }
         
         else {
+            // println!("normal");
             self.slide_piece(get_piece_index(self.state.turn_color, _move.piece_type), _move.to, _move.from, self.state.turn_color, _move.piece_type);
 
             if let Some(captured_piece) = self.state.captured_piece {
@@ -1061,6 +1069,10 @@ impl Chessboard {
     /// Checks if the current tested side king is in check or not
     pub(crate) fn is_in_check(&mut self, side: Color) -> bool {
         let king = self.get_piece(side, Piece::King);
+
+        if king == 0 {
+            panic!("why is king 0 {}", king);
+        }
         self.is_square_attacked_by_color(king, side.swap())
     }
 }
