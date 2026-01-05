@@ -17,10 +17,9 @@ pub fn perft(chessboard: &mut Chessboard, depth: u8) -> u64 {
     let n_moves = all_pseudo_legal_moves.len();
     for _move in all_pseudo_legal_moves.iter().take(n_moves) {
         chessboard.make(_move);
-        if !chessboard.is_in_check(chessboard.state_stack[chessboard.ply_index].turn_color) {
+        if !chessboard.is_in_check(chessboard.state_stack[chessboard.ply_index - 1].turn_color) {
             nodes += perft(chessboard, depth - 1);
         }
-        println!("chessboard: \n{}", chessboard);
         chessboard.unmake(_move);
     }
 
@@ -41,18 +40,24 @@ pub fn perft_to_file(chessboard: &mut Chessboard, depth: u8, file_path: &str) ->
         let n_moves = all_pseudo_legal_moves.len();
 
         for mv in all_pseudo_legal_moves.iter().take(n_moves) {
+            writeln!(writer, "making move: {}", mv).unwrap();
             chessboard.make(mv);
-            if !chessboard.is_in_check(chessboard.state_stack[chessboard.ply_index].turn_color) {
+            if !chessboard.is_in_check(chessboard.state_stack[chessboard.ply_index-1].turn_color) {
                 let move_nodes = perft_inner(chessboard, depth - 1, writer);
                 nodes += move_nodes;
-
+                
                 writeln!(writer, "{} {}", mv, move_nodes).expect("Failed to write move");
             } else {
+                writeln!(writer, "{:?} is in check...", chessboard.state_stack[chessboard.ply_index-1].turn_color).unwrap();
                 writeln!(writer, "{} 0", mv).expect("Failed to write illegal move");
             }
 
             writeln!(writer, "chessboard:\n{}", chessboard).expect("Failed to write board");
+            // writeln!(writer, "before unmake, move: {}", mv).unwrap();
+            // writeln!(writer, "{}", chessboard).unwrap();
             chessboard.unmake(mv);
+            writeln!(writer, "after unmake").unwrap();
+            writeln!(writer, "{}", chessboard).unwrap();
         }
 
         nodes
@@ -98,7 +103,7 @@ pub fn draw_perft_tree(
         chessboard.make(mv);
 
         let is_in_check =
-            chessboard.is_in_check(chessboard.state_stack[chessboard.ply_index].turn_color);
+            chessboard.is_in_check(chessboard.state_stack[chessboard.ply_index - 1].turn_color);
 
         if !is_in_check {
             let subtree_nodes = draw_perft_tree(chessboard, depth - 1, &new_indent);
@@ -128,9 +133,9 @@ pub fn perft_tree(chessboard: &mut Chessboard, depth: u8) -> u64 {
     for mv in all_pseudo_legal_moves.iter().take(n_moves) {
         chessboard.make(mv);
 
-        let in_check = chessboard.is_in_check(chessboard.state_stack[chessboard.ply_index].turn_color);
+        let in_check = chessboard.is_in_check(chessboard.state_stack[chessboard.ply_index - 1].turn_color);
         if !in_check {
-            let move_nodes = perft_tree(chessboard, depth - 1);
+            let move_nodes = perft(chessboard, depth - 1);
             nodes += move_nodes;
             chessboard.unmake(mv);
             println!("{} {}", mv, move_nodes);

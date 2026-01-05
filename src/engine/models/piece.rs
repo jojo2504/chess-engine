@@ -94,7 +94,7 @@ impl Pawn {
 
     /// Compute possible moves for a given pawn and its color.
     pub(crate) fn compute_possible_moves(location: u64, chessboard: &Chessboard, turn_color: Color) -> u64 {
-        match turn_color {
+        let moves = match turn_color {
             Color::White => {
                 let pawn_one_step: u64 = (location << 8) & !chessboard.get_all_pieces();
                 let pawn_two_steps: u64 = ((pawn_one_step & Rank::Rank3.mask()) << 8) & !chessboard.get_all_pieces();
@@ -127,7 +127,9 @@ impl Pawn {
                     chessboard.state.en_passant_square.map_or(0, |sq| sq as u64));
                 pawn_valid_moves | pawn_valid_attacks
             }
-        }
+        };
+        let own_side = chessboard.get_color_pieces(turn_color);
+        moves & !own_side
     }
 
     pub(crate) fn compute_possible_attacks(location: u64, chessboard: &Chessboard, turn_color: Color) -> u64 {
@@ -477,7 +479,7 @@ fn bishop() -> &'static Bishop {
 
                 // Transform occupancy to magic index
                 let masked_occ = occupancy & mask;
-                let magic_index = transform(masked_occ, bishop.bishop_magic_table[sq].magic_number, 12);
+                let magic_index = transform(masked_occ, bishop.bishop_magic_table[sq].magic_number, 9);
 
                 // Store the attacks in your lookup table
                 bishop.magic_bishop_attacks[sq][magic_index as usize] = attacks;

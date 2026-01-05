@@ -11,7 +11,7 @@ use std::{alloc::System, env};
 static GLOBAL: &StatsAlloc<System> = &INSTRUMENTED_SYSTEM;
 
 fn main() -> anyhow::Result<()> {
-    // let mut chessboard= Chessboard::from_fen("8/8/8/8/8/6q1/4P3/7K w - - 0 1").unwrap();
+    // let mut chessboard= Chessboard::from_fen("k7/8/1Q6/8/8/1Pp3q1/2P5/7K w - - 0 1").unwrap();
     let mut chessboard = Chessboard::new();
 
     // let before = GLOBAL.stats();
@@ -20,15 +20,22 @@ fn main() -> anyhow::Result<()> {
     // let after = GLOBAL.stats();
     // println!("{:#?}", after - before);
     // search_test();
-    let mut args = env::args();
-    if args.len() > 1 {
-        println!("perftree: ");
-        perft_tree(&mut chessboard, args.nth(1).unwrap().as_bytes()[0]);
+    let args: Vec<String> = env::args().collect();
+    if args.len() >= 3 {
+        let depth: u8 = args[1]
+            .parse()
+            .expect("Depth must be a number");
+
+        let fen = &args[2];
+
+        let mut chessboard = Chessboard::from_fen(fen).unwrap();
+        perft_tree(&mut chessboard, depth);
     }
     else {
         println!("normal perft: ");
-        // perft(&mut chessboard, 2);
-        perft_to_file(&mut chessboard, 3, "./a.txt");
+        println!("{}", perft(&mut chessboard, 2));
+        // perft_to_file(&mut chessboard, 3, "./a.txt");
+        // draw_perft_tree(&mut chessboard, 3, " ");
     }
     Ok(())
 }
