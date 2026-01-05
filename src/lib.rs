@@ -40,7 +40,7 @@ pub fn perft_to_file(chessboard: &mut Chessboard, depth: u8, file_path: &str) ->
         let n_moves = all_pseudo_legal_moves.len();
 
         for mv in all_pseudo_legal_moves.iter().take(n_moves) {
-            writeln!(writer, "making move: {}", mv).unwrap();
+            writeln!(writer, "making move: {:?} {} {:?}", mv.piece_type, mv, mv.move_kind()).unwrap();
             chessboard.make(mv);
             if !chessboard.is_in_check(chessboard.state_stack[chessboard.ply_index-1].turn_color) {
                 let move_nodes = perft_inner(chessboard, depth - 1, writer);
