@@ -533,7 +533,6 @@ impl Chessboard {
     fn is_square_attacked_by_color(&self, square: u64, attacking_side: Color) -> bool {
         let square_index: usize = square.trailing_zeros() as usize;
         // println!("attacking side {:?}", attacking_side);
-        
         // Checks if there are any knight which attacks the square.
         let knights = self.pieces[2 + 6 * attacking_side as usize];
         if (Knight::get_move_masks()[square_index] & knights) != 0 {
@@ -870,25 +869,27 @@ impl Chessboard {
 
                 for piece in Piece::ALL {
                     if self.is_opponent_case_occupied_for_piece(r#move, piece, self.state.turn_color) {
+                        // Remove captured piece
                         self.toggle_piece(
                             get_piece_index(self.state.turn_color.swap(), piece),
                             mv.to,
                             self.state.turn_color.swap(), 
                             piece);
-                        self.slide_piece(
-                            get_piece_index(self.state.turn_color, mv.piece_type),
-                            mv.from,
-                            mv.to,
-                            self.state.turn_color,
-                            mv.piece_type,
-                        );
+                        
+                        // self.slide_piece(
+                        //     get_piece_index(self.state.turn_color, mv.piece_type),
+                        //     mv.from,
+                        //     mv.to,
+                        //     self.state.turn_color,
+                        //     mv.piece_type,
+                        // );
 
                         // ---- promotion-on-capture ----
                         match kind {
                             Some(MoveKind::KnightPromotionCapture) => {
                                 self.toggle_piece(
                                     get_piece_index(self.state.turn_color, Piece::Pawn),
-                                    mv.to,
+                                    mv.from,
                                     self.state.turn_color,
                                     Piece::Pawn,
                                 );
@@ -902,7 +903,7 @@ impl Chessboard {
                             Some(MoveKind::BishopPromotionCapture) => {
                                 self.toggle_piece(
                                     get_piece_index(self.state.turn_color, Piece::Pawn),
-                                    mv.to,
+                                    mv.from,
                                     self.state.turn_color,
                                     Piece::Pawn,
                                 );
@@ -916,7 +917,7 @@ impl Chessboard {
                             Some(MoveKind::RookPromotionCapture) => {
                                 self.toggle_piece(
                                     get_piece_index(self.state.turn_color, Piece::Pawn),
-                                    mv.to,
+                                    mv.from,
                                     self.state.turn_color,
                                     Piece::Pawn,
                                 );
@@ -930,7 +931,7 @@ impl Chessboard {
                             Some(MoveKind::QueenPromotionCapture) => {
                                 self.toggle_piece(
                                     get_piece_index(self.state.turn_color, Piece::Pawn),
-                                    mv.to,
+                                    mv.from,
                                     self.state.turn_color,
                                     Piece::Pawn,
                                 );
@@ -941,7 +942,16 @@ impl Chessboard {
                                     Piece::Queen,
                                 );
                             }
-                            _ => {}
+                            _ => {
+                                // Regular capture, not promotion
+                                self.slide_piece(
+                                    get_piece_index(self.state.turn_color, mv.piece_type),
+                                    mv.from,
+                                    mv.to,
+                                    self.state.turn_color,
+                                    mv.piece_type,
+                                );
+                            }
                         }
 
                         self.state.captured_piece = Some(piece);
@@ -1014,7 +1024,7 @@ impl Chessboard {
             // println!("promotion");
             if _move.capture_flag() {
                 if let Some(captured_piece) = self.state.captured_piece {
-                    self.toggle_piece(get_piece_index(self.state.turn_color.swap(), captured_piece), _move.to, self.state.turn_color, captured_piece);
+                    self.toggle_piece(get_piece_index(self.state.turn_color.swap(), captured_piece), _move.to, self.state.turn_color.swap(), captured_piece);
                 }
             }
 

@@ -1,6 +1,8 @@
 use std::{fs::File, io::BufWriter};
 use std::io::Write;
 
+use crate::engine::models::board::Color;
+use crate::engine::models::piece::Piece;
 use crate::engine::{models::{board::Chessboard, r#move::{Move, MoveKind}}, movegen::generate_moves, search::Search};
 use crate::utils::string_format::display_bitstring_as_chessboard;
 
@@ -61,12 +63,14 @@ pub fn perft_to_file(chessboard: &mut Chessboard, depth: u8, file_path: &str) ->
         for mv in all_pseudo_legal_moves.iter().take(n_moves) {
             writeln!(writer, "making move: {:?} {} {:?}", mv.piece_type, mv, mv.move_kind()).unwrap();
             chessboard.make(mv);
+            write!(writer, "{}", chessboard);
             // writeln!(writer, "state after move: {:?}", chessboard.state).unwrap();
             // println!("white pieces");
             // display_bitstring_as_chessboard(&as_064b(chessboard.white_pieces));
             // println!("------------");
             // println!("black pieces");
             // display_bitstring_as_chessboard(&as_064b(chessboard.black_pieces));
+            writeln!(writer, "{}", as_064b(chessboard.get_piece(Color::White, Piece::Queen)));
             if !chessboard.is_in_check(chessboard.state_stack[chessboard.ply_index].turn_color) {
                 let move_nodes = perft_inner(chessboard, depth - 1, writer);
                 nodes += move_nodes;
