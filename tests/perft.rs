@@ -176,4 +176,12 @@ mod tests {
         assert_eq!(perft(&mut chessboard, 1), 2);
         assert_eq!(perft(&mut chessboard, 2), 3);
     }
+
+    #[test]
+    fn test_pin_promotion_capture() {
+        let fen = "2bn1k2/3P4/8/8/8/8/8/7K w - - 0 1";
+        let mut chessboard = Chessboard::from_fen(fen).unwrap();
+
+        assert_eq!(perft(&mut chessboard, 2), 60);
+    }
 }
