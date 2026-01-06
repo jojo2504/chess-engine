@@ -1049,7 +1049,7 @@ impl Chessboard {
         }
 
         else if _move.move_kind() == MoveKind::EpCapture {
-            println!("en passant");
+            // println!("en passant");
             self.slide_piece(get_piece_index(self.state.turn_color, Piece::Pawn), _move.to, _move.from, self.state.turn_color, Piece::Pawn);
             match self.state.turn_color {
                 Color::White => self.toggle_piece(get_piece_index(Color::Black, Piece::Pawn), _move.to >> 8, Color::Black, Piece::Pawn),

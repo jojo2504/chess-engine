@@ -1,11 +1,11 @@
-#![warn(missing_docs, dead_code)]
-#![deny(unused_imports, unused_mut)]
-#![warn(clippy::missing_docs_in_private_items)]
-#![deny(clippy::unwrap_used, clippy::expect_used)]
+// #![warn(missing_docs, dead_code)]
+// #![deny(unused_imports, unused_mut)]
+// #![warn(clippy::missing_docs_in_private_items)]
+// #![deny(clippy::unwrap_used, clippy::expect_used)]
 
 use std::{collections::HashMap, sync::OnceLock};
 
-use crate::{engine::{magic::Magic, models::{board::{Board, Chessboard, Color, File, Rank}, r#move::MoveKind}}, utils::bit_operations::{index_to_bitboard, transform}};
+use crate::{as_064b, engine::{magic::Magic, models::{board::{Board, Chessboard, Color, File, Rank}, r#move::MoveKind}}, utils::{bit_operations::{index_to_bitboard, transform}, string_format::display_bitstring_as_chessboard}};
 
 /// Quick enum to match pieces
 #[allow(clippy::missing_docs_in_private_items)]
@@ -111,7 +111,7 @@ impl Pawn {
         
                 let pawn_valid_attacks = (pawn_left_attack | pawn_right_attack) & 
                     (chessboard.get_all_pieces() | 
-                    chessboard.state.en_passant_square.map_or(0, |sq| sq as u64));
+                    chessboard.state.en_passant_square.map_or(0, |sq| sq.bitboard()));
                 pawn_valid_moves | pawn_valid_attacks
             },
             Color::Black => {
@@ -124,7 +124,7 @@ impl Pawn {
         
                 let pawn_valid_attacks = (pawn_left_attack | pawn_right_attack) & 
                     (chessboard.get_all_pieces() | 
-                    chessboard.state.en_passant_square.map_or(0, |sq| sq as u64));
+                    chessboard.state.en_passant_square.map_or(0, |sq| sq.bitboard()));
                 pawn_valid_moves | pawn_valid_attacks
             }
         };
