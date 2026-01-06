@@ -7,8 +7,13 @@ use std::marker::PhantomData;
 
 use anyhow::anyhow;
 use console::Term;
+use rand::seq::IndexedRandom;
+use rand::rng;
 
-use crate::engine::{models::board::Chessboard, search::Search};
+use crate::engine::models::r#move::Move;
+use crate::engine::search::evaluation::Evaluation;
+use crate::engine::{models::board::Chessboard, movegen::generate_moves, search::Search};
+use crate::pause;
 
 /// `Not Connected` State for the engine.
 pub struct NotConnected;
@@ -68,6 +73,50 @@ impl Engine<NotConnected> {
             state: PhantomData::<Connected> 
         })
     }
+
+    /// This method starts game against itself, the engine or AI will return after each of its turn its corresponding "best move".
+    pub fn start_self_game(&mut self) {
+        let mut turn_counter = 0;
+        loop {    
+            let best_move = self.search.think(&mut self.chessboard);
+    
+            if let Some(best_move) = best_move {
+                self.chessboard.make(&best_move);
+                println!("chessboard:\n{}", self.chessboard);
+                pause(&format!("-------------- {} {} {}", turn_counter, best_move, Evaluation::evaluate(&self.chessboard)));
+            }
+
+            turn_counter += 1;
+        }
+    }
+
+    /// Start a game against itself with by playing only random moves.
+    pub fn start_random_game(&mut self) {
+        let mut turn_counter = 0;
+        loop {
+            let moves = generate_moves(&self.chessboard);
+            let moves: Vec<&Move> = moves.iter().filter_map(|mv| {
+                self.chessboard.make(mv);
+                if !self.chessboard.is_in_check(self.chessboard.state_stack[self.chessboard.ply_index].turn_color) {
+                    self.chessboard.unmake(mv);
+                    return Some(mv);
+                }
+                self.chessboard.unmake(mv);
+                None
+            }).collect();
+    
+            let mut rng = rng();
+            let random_move = moves.choose(&mut rng);
+    
+            if let Some(random_move) = random_move {
+                self.chessboard.make(&random_move);
+                println!("chessboard:\n{}", self.chessboard);
+                pause(&format!("-------------- {}", turn_counter));
+            }
+
+            turn_counter += 1;
+        }
+    } 
 }
 
 impl Engine<Connected> {
@@ -103,16 +152,6 @@ impl Engine<Connected> {
 
         Ok(())
     }
-    
-    /// This method starts game against itself, the engine or AI will return after each of its turn its corresponding "best move".
-    pub fn start_self_game(&self) {
-        todo!()
-    }
-
-    /// Start a game against itself with by playing only random moves.
-    pub fn start_random_game(&self) {
-        todo!()
-    } 
 }
 
 impl Engine {

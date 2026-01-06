@@ -1,4 +1,5 @@
 /// Removes and returns the index of the least significant set bit.
+#[inline(always)]
 pub(crate) fn pop_1st_bit(bitboard: &mut u64) -> u32 {
     let pos = bitboard.trailing_zeros();
     *bitboard &= *bitboard - 1_u64;  // Remove the rightmost bit

@@ -612,7 +612,7 @@ impl Chessboard {
     /// // Remove a captured piece (random square in this example)
     /// chessboard.toggle_piece(get_piece_index(Color::White, Piece::Pawn), Square::A2.bitboard(), Color::White, Piece::Pawn);
     /// ```
-    #[inline]
+    #[inline(always)]
     pub fn slide_piece(&mut self, piece_index: usize, from: u64, to: u64, side: Color, piece: Piece) {
         self.pieces[piece_index] ^= from ^ to;
         match side {
@@ -622,6 +622,7 @@ impl Chessboard {
     }
 
     /// Use this method when required to put a piece without moving one or removing a piece, like during game initialization, captures or promotions.
+    #[inline(always)]
     pub fn toggle_piece(&mut self, piece_index: usize, square: u64, side: Color, piece: Piece) {
         self.pieces[piece_index] ^= square;
         match side {
@@ -635,16 +636,6 @@ impl Chessboard {
         // TODO: Check if it is possible with unmake()
         self.ply_index += 1;
         self.state_stack[self.ply_index] = self.state;
-    }
-
-    pub(crate) fn is_occupied(&self, r#move: &Move) -> bool {
-        return self.get_all_pieces() & r#move.to != 0;
-    }
-
-    pub(crate) fn is_opponent_case_occupied_for_piece(&self, r#move: &Move, piece: Piece, current_color: Color) -> bool {
-        let opponent_color = current_color ^ Color::Black;
-        let opponent_board = self.get_piece(opponent_color, piece);
-        return self.get_all_pieces() & opponent_board & r#move.to != 0;
     }
 
     /// Make a move on the chessboard itself.
