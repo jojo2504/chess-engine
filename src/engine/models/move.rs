@@ -27,6 +27,28 @@ pub(crate) enum MoveKind {
     QueenPromotionCapture = 15
 }
 
+impl MoveKind {
+    pub fn from_u8_unchecked(value: u8) -> Self {
+        match value {
+            0 => MoveKind::QuietMoves,
+            1 => MoveKind::DoublePawnPush,
+            2 => MoveKind::KingCastle,
+            3 => MoveKind::QueenCastle,
+            4 => MoveKind::Captures,
+            5 => MoveKind::EpCapture,
+            8 => MoveKind::KnightPromotion,
+            9 => MoveKind::BishopPromotion,
+            10 => MoveKind::RookPromotion,
+            11 => MoveKind::QueenPromotion,
+            12 => MoveKind::KnightPromotionCapture,
+            13 => MoveKind::BishopPromotionCapture,
+            14 => MoveKind::RookPromotionCapture,
+            15 => MoveKind::QueenPromotionCapture,
+            _ => unreachable!()
+        }
+    }
+}
+
 impl TryFrom<u8> for MoveKind {
     type Error = String;
     fn try_from(value: u8) -> Result<Self, Self::Error> {
@@ -154,7 +176,7 @@ impl Move {
     /// Returns the [MoveKind] of the move.
     pub(crate) fn move_kind(&self) -> MoveKind {
         #[allow(clippy::unwrap_used, reason="Infallible")]
-        MoveKind::try_from(self.move_kind_code()).unwrap()
+        MoveKind::from_u8_unchecked(self.move_kind_code())
     }
     
     /// Checks if the move is a `castle`.

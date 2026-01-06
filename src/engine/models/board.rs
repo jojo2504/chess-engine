@@ -544,7 +544,7 @@ impl Chessboard {
         let rooks_queens = self.get_piece(attacking_side, Piece::Queen) | 
         self.get_piece(attacking_side, Piece::Rook);
         if ((SuperPiece::rook_rays()[square_index] & rooks_queens) != 0)
-        && ((Rook::compute_possible_moves(square, self, attacking_side.swap()) & rooks_queens) != 0) {
+        && ((Rook::compute_possible_moves(square, &self, attacking_side.swap()) & rooks_queens) != 0) {
             // println!("checked by rook queen");
             return true;
         }
@@ -553,7 +553,7 @@ impl Chessboard {
         let bishops_queens = self.get_piece(attacking_side, Piece::Queen) |
         self.get_piece(attacking_side, Piece::Bishop);
         if ((SuperPiece::bishop_rays()[square_index] & bishops_queens) != 0)
-        && ((Bishop::compute_possible_moves(square, self, attacking_side.swap()) & bishops_queens) != 0) {
+        && ((Bishop::compute_possible_moves(square, &self, attacking_side.swap()) & bishops_queens) != 0) {
             // println!("checked by bishop queen");
             return true;
         }
@@ -613,22 +613,23 @@ impl Chessboard {
     /// chessboard.toggle_piece(get_piece_index(Color::White, Piece::Pawn), Square::A2.bitboard(), Color::White, Piece::Pawn);
     /// ```
     #[inline(always)]
-    pub fn slide_piece(&mut self, piece_index: usize, from: u64, to: u64, side: Color, piece: Piece) {
-        self.pieces[piece_index] ^= from ^ to;
-        match side {
-            Color::White => self.white_pieces ^= from ^ to,
-            Color::Black => self.black_pieces ^= from ^ to,
+    pub fn slide_piece(&mut self, piece_index: usize, from: u64, to: u64, side: Color, _piece: Piece) {
+        let xor = from ^ to;
+        self.pieces[piece_index] ^= xor;
+        unsafe {
+            let color_pieces = (&mut self.white_pieces as *mut u64).offset(side as isize);
+            *color_pieces ^= xor;
         }
     }
 
     /// Use this method when required to put a piece without moving one or removing a piece, like during game initialization, captures or promotions.
     #[inline(always)]
-    pub fn toggle_piece(&mut self, piece_index: usize, square: u64, side: Color, piece: Piece) {
+    pub fn toggle_piece(&mut self, piece_index: usize, square: u64, side: Color, _piece: Piece) {
         self.pieces[piece_index] ^= square;
-        match side {
-            Color::White => self.white_pieces ^= square,
-            Color::Black => self.black_pieces ^= square,
-        };
+        unsafe {
+            let color_pieces = (&mut self.white_pieces as *mut u64).offset(side as isize);
+            *color_pieces ^= square;
+        }
     }
 
     #[inline(always)]
@@ -641,7 +642,7 @@ impl Chessboard {
     /// Make a move on the chessboard itself.
     pub fn make(&mut self, r#move: &Move) {
         let mv = r#move;
-        let kind = MoveKind::try_from(mv.move_kind_code()).ok();
+        let kind = MoveKind::from_u8_unchecked(mv.move_kind_code());
 
         // =====================
         // CASTLING
@@ -675,7 +676,7 @@ impl Chessboard {
             }
 
             match kind {
-                Some(MoveKind::KingCastle) => {
+                MoveKind::KingCastle => {
                     match self.state.turn_color {
                         Color::White => {
                             self.slide_piece(
@@ -698,7 +699,7 @@ impl Chessboard {
                     }
                 }
 
-                Some(MoveKind::QueenCastle) => {
+                MoveKind::QueenCastle => {
                     match self.state.turn_color {
                         Color::White => {
                             self.slide_piece(
@@ -729,7 +730,7 @@ impl Chessboard {
         // =====================
         // EN PASSANT
         // =====================
-        else if kind == Some(MoveKind::EpCapture) {
+        else if kind == MoveKind::EpCapture {
             self.save_state();
 
             // remove captured pawn
@@ -774,7 +775,7 @@ impl Chessboard {
             if !mv.captured_piece.is_some() {
                 if mv.piece_type == Piece::Pawn {
                     match kind {
-                        Some(MoveKind::KnightPromotion) => {
+                        MoveKind::KnightPromotion => {
                             self.toggle_piece(
                                 get_piece_index(self.state.turn_color, Piece::Pawn),
                                 mv.from,
@@ -788,7 +789,7 @@ impl Chessboard {
                                 Piece::Knight,
                             );
                         }
-                        Some(MoveKind::BishopPromotion) => {
+                        MoveKind::BishopPromotion => {
                             self.toggle_piece(
                                 get_piece_index(self.state.turn_color, Piece::Pawn),
                                 mv.from,
@@ -802,7 +803,7 @@ impl Chessboard {
                                 Piece::Bishop,
                             );
                         }
-                        Some(MoveKind::RookPromotion) => {
+                        MoveKind::RookPromotion => {
                             self.toggle_piece(
                                 get_piece_index(self.state.turn_color, Piece::Pawn),
                                 mv.from,
@@ -816,7 +817,7 @@ impl Chessboard {
                                 Piece::Rook,
                             );
                         }
-                        Some(MoveKind::QueenPromotion) => {
+                        MoveKind::QueenPromotion => {
                             self.toggle_piece(
                                 get_piece_index(self.state.turn_color, Piece::Pawn),
                                 mv.from,
@@ -867,7 +868,7 @@ impl Chessboard {
 
                 // ---- promotion-on-capture ----
                 match kind {
-                    Some(MoveKind::KnightPromotionCapture) => {
+                    MoveKind::KnightPromotionCapture => {
                         self.toggle_piece(
                             get_piece_index(self.state.turn_color, Piece::Pawn),
                             mv.from,
@@ -881,7 +882,7 @@ impl Chessboard {
                             Piece::Knight,
                         );
                     }
-                    Some(MoveKind::BishopPromotionCapture) => {
+                    MoveKind::BishopPromotionCapture => {
                         self.toggle_piece(
                             get_piece_index(self.state.turn_color, Piece::Pawn),
                             mv.from,
@@ -895,7 +896,7 @@ impl Chessboard {
                             Piece::Bishop,
                         );
                     }
-                    Some(MoveKind::RookPromotionCapture) => {
+                    MoveKind::RookPromotionCapture => {
                         self.toggle_piece(
                             get_piece_index(self.state.turn_color, Piece::Pawn),
                             mv.from,
@@ -909,7 +910,7 @@ impl Chessboard {
                             Piece::Rook,
                         );
                     }
-                    Some(MoveKind::QueenPromotionCapture) => {
+                    MoveKind::QueenPromotionCapture => {
                         self.toggle_piece(
                             get_piece_index(self.state.turn_color, Piece::Pawn),
                             mv.from,
@@ -977,7 +978,7 @@ impl Chessboard {
 
                 Piece::Pawn => {
                     // double pawn push sets en passant square
-                    if kind == Some(MoveKind::DoublePawnPush) {
+                    if kind == MoveKind::DoublePawnPush {
                         self.state.en_passant_square = Some(match self.state.turn_color {
                             Color::White => Square::try_from((mv.to >> 8).trailing_zeros() as u64).unwrap(),
                             Color::Black => Square::try_from((mv.to << 8).trailing_zeros() as u64).unwrap(),

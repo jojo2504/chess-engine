@@ -8,6 +8,7 @@ use crate::{
 };
 
 /// Add pawn moves to the current move generation cycle.
+#[inline(always)]
 pub(crate) fn add_all_possible_moves_pawn(
     from: u64,
     mut possible_moves: u64,
@@ -20,8 +21,7 @@ pub(crate) fn add_all_possible_moves_pawn(
     while possible_moves != 0 {
         let to: u64 = 1 << possible_moves.trailing_zeros();
         let to_index = to.trailing_zeros();
-
-        pop_1st_bit(&mut possible_moves);
+        possible_moves ^= to;
 
         let mut word: u16 = word_from | (to_index << 4) as u16;
         
@@ -81,6 +81,7 @@ pub(crate) fn add_all_possible_moves_pawn(
 }
 
 /// Add king moves to the current move generation cycle.
+#[inline(always)]
 pub(crate) fn add_all_possible_moves_king(
     from: u64,
     mut possible_moves: u64,
@@ -93,7 +94,7 @@ pub(crate) fn add_all_possible_moves_king(
     while possible_moves != 0 {
         let to: u64 = 1 << possible_moves.trailing_zeros();
         let to_index = to.trailing_zeros();
-        pop_1st_bit(&mut possible_moves);
+        possible_moves ^= to;
 
         let mut word: u16 = word_from as u16 | (to_index << 4) as u16;
         let mut captured_piece: Option<Piece> = None;
@@ -119,6 +120,7 @@ pub(crate) fn add_all_possible_moves_king(
 }
 
 /// Add all other pieces to the current move generation cycle.
+#[inline(always)]
 pub(crate) fn add_all_possible_moves(
     from: u64,
     mut possible_moves: u64,
@@ -129,7 +131,7 @@ pub(crate) fn add_all_possible_moves(
     let word_from: u16 = (from.trailing_zeros() as u16) << 10;
     while possible_moves != 0 {
         let to: u64 = 1 << possible_moves.trailing_zeros();
-        pop_1st_bit(&mut possible_moves);
+        possible_moves ^= to;
 
         let mut word: u16 = word_from | ((to.trailing_zeros() as u16) << 4);
 

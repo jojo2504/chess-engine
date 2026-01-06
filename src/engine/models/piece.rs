@@ -635,24 +635,17 @@ pub(crate) struct SuperPiece {
     rook_rays: [u64; 64],
     /// Bishop-like rays for each square.
     bishop_rays: [u64; 64],
-    /// Knight attack masks for each square.
-    knight_rays: [u64; 64],
 }
 
 impl SuperPiece {
     /// Returns an array of all rook rays for each square, simulating an empty board.
-    pub(crate) fn rook_rays() -> [u64; 64] {
-        super_piece().rook_rays
+    pub(crate) fn rook_rays() -> &'static [u64; 64] {
+        &super_piece().rook_rays
     }
     
     /// Returns an array of all bishop rays for each square, simulating an empty board.
-    pub(crate) fn bishop_rays() -> [u64; 64] {
-        super_piece().bishop_rays
-    }
-
-    /// Returns an array of all knight attack masks for each square.
-    pub(crate) fn knight_rays() -> [u64; 64] {
-        super_piece().knight_rays
+    pub(crate) fn bishop_rays() -> &'static [u64; 64] {
+        &super_piece().bishop_rays
     }
 }
 
@@ -663,13 +656,11 @@ fn super_piece() -> &'static SuperPiece {
         let mut super_piece = SuperPiece {
             rook_rays: [0; 64],
             bishop_rays: [0; 64],
-            knight_rays: [0; 64],
         };
 
         for i in 0..64 {
             super_piece.rook_rays[i] = Rook::ratt(i as i32, 0u64);
             super_piece.bishop_rays[i] = Bishop::batt(i as i32, 0u64);
-            super_piece.knight_rays[i] = Knight::get_move_masks()[i];
         }
 
         super_piece

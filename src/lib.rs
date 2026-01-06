@@ -125,7 +125,7 @@ pub fn draw_perft_tree(
             "{indent}{branch} {:?} {} {:?}",
             chessboard.state.turn_color,
             mv,
-            MoveKind::try_from(mv.move_kind_code()).unwrap()
+            MoveKind::from_u8_unchecked(mv.move_kind_code())
         );
 
         chessboard.make(mv);
