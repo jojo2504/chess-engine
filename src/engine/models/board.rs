@@ -291,7 +291,7 @@ impl FromStr for Square {
 
 /// Returns the piece index for indexing `self.pieces`.
 #[inline]
-pub fn get_piece_index(color: Color, piece: Piece) -> usize {
+pub const fn get_piece_index(color: Color, piece: Piece) -> usize {
     color as usize * 6 + piece as usize
 }
 
@@ -615,7 +615,6 @@ impl Chessboard {
     #[inline(always)]
     pub fn slide_piece(&mut self, piece_index: usize, from: u64, to: u64, side: Color, _piece: Piece) {
         let xor = from ^ to;
-        self.pieces[piece_index] ^= xor;
         unsafe {
             let color_pieces = (&mut self.white_pieces as *mut u64).offset(side as isize);
             *color_pieces ^= xor;
@@ -635,8 +634,10 @@ impl Chessboard {
     #[inline(always)]
     pub(crate) fn save_state(&mut self) {
         // TODO: Check if it is possible with unmake()
-        self.ply_index += 1;
-        self.state_stack[self.ply_index] = self.state;
+        unsafe {
+            self.ply_index = self.ply_index.unchecked_add(1);
+            *self.state_stack.get_unchecked_mut(self.ply_index) = self.state;
+        }
     }
 
     /// Make a move on the chessboard itself.
@@ -980,8 +981,8 @@ impl Chessboard {
                     // double pawn push sets en passant square
                     if kind == MoveKind::DoublePawnPush {
                         self.state.en_passant_square = Some(match self.state.turn_color {
-                            Color::White => Square::try_from((mv.to >> 8).trailing_zeros() as u64).unwrap(),
-                            Color::Black => Square::try_from((mv.to << 8).trailing_zeros() as u64).unwrap(),
+                            Color::White => unsafe { std::mem::transmute::<u8, Square>((mv.to >> 8).trailing_zeros() as u8) },
+                            Color::Black => unsafe { std::mem::transmute::<u8, Square>((mv.to << 8).trailing_zeros() as u8) },
                         });
                     }
                 }
