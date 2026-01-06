@@ -1,11 +1,11 @@
-#![warn(missing_docs, dead_code)]
-#![deny(unused_imports, unused_mut)]
-#![warn(clippy::missing_docs_in_private_items)]
-#![deny(clippy::unwrap_used, clippy::expect_used)]
+// #![warn(missing_docs, dead_code)]
+// #![deny(unused_imports, unused_mut)]
+// #![warn(clippy::missing_docs_in_private_items)]
+// #![deny(clippy::unwrap_used, clippy::expect_used)]
 
 use std::{collections::HashMap, sync::OnceLock};
 
-use crate::{engine::{magic::Magic, models::{board::{Board, Chessboard, Color, File, Rank}, r#move::MoveKind}}, utils::bit_operations::{index_to_bitboard, transform}};
+use crate::{as_064b, engine::{magic::Magic, models::{board::{Board, Chessboard, Color, File, Rank}, r#move::MoveKind}}, utils::{bit_operations::{index_to_bitboard, transform}, string_format::display_bitstring_as_chessboard}};
 
 /// Quick enum to match pieces
 #[allow(clippy::missing_docs_in_private_items)]
@@ -17,6 +17,17 @@ pub enum Piece {
     Bishop,
     Queen,
     King,
+}
+
+impl Piece {
+    pub const ALL: [Piece; 6] = [
+        Piece::Pawn,
+        Piece::Rook,
+        Piece::Knight,
+        Piece::Bishop,
+        Piece::Queen,
+        Piece::King,
+    ];
 }
 
 impl TryFrom<i32> for Piece {
@@ -64,7 +75,7 @@ impl From<Piece> for char {
 /// * `pawn_attack_masks` - An array of 128 bitboards representing the attack patterns
 ///   for pawns from different positions. Each bitboard represents the squares that
 ///   a pawn can attack from a given position.
-pub(crate) struct Pawn {
+pub struct Pawn {
     /// Precomputed attack mask for every pawn position for both side, white then black.
     pawn_attack_masks: [u64; 128],
     promotion_map: HashMap<char, u8>
@@ -72,7 +83,7 @@ pub(crate) struct Pawn {
 
 impl Pawn {
     /// Returns the precomputed attack masks for pawns.
-    pub(crate) fn get_attack_mask() -> [u64; 128] {
+    pub fn get_attack_mask() -> [u64; 128] {
         pawn().pawn_attack_masks
     }
 
@@ -83,7 +94,7 @@ impl Pawn {
 
     /// Compute possible moves for a given pawn and its color.
     pub(crate) fn compute_possible_moves(location: u64, chessboard: &Chessboard, turn_color: Color) -> u64 {
-        match turn_color {
+        let moves = match turn_color {
             Color::White => {
                 let pawn_one_step: u64 = (location << 8) & !chessboard.get_all_pieces();
                 let pawn_two_steps: u64 = ((pawn_one_step & Rank::Rank3.mask()) << 8) & !chessboard.get_all_pieces();
@@ -100,7 +111,7 @@ impl Pawn {
         
                 let pawn_valid_attacks = (pawn_left_attack | pawn_right_attack) & 
                     (chessboard.get_all_pieces() | 
-                    chessboard.state.en_passant_square.map_or(0, |sq| sq as u64));
+                    chessboard.state.en_passant_square.map_or(0, |sq| sq.bitboard()));
                 pawn_valid_moves | pawn_valid_attacks
             },
             Color::Black => {
@@ -113,10 +124,12 @@ impl Pawn {
         
                 let pawn_valid_attacks = (pawn_left_attack | pawn_right_attack) & 
                     (chessboard.get_all_pieces() | 
-                    chessboard.state.en_passant_square.map_or(0, |sq| sq as u64));
+                    chessboard.state.en_passant_square.map_or(0, |sq| sq.bitboard()));
                 pawn_valid_moves | pawn_valid_attacks
             }
-        }
+        };
+        let own_side = chessboard.get_color_pieces(turn_color);
+        moves & !own_side
     }
 
     pub(crate) fn compute_possible_attacks(location: u64, chessboard: &Chessboard, turn_color: Color) -> u64 {
@@ -466,7 +479,7 @@ fn bishop() -> &'static Bishop {
 
                 // Transform occupancy to magic index
                 let masked_occ = occupancy & mask;
-                let magic_index = transform(masked_occ, bishop.bishop_magic_table[sq].magic_number, 12);
+                let magic_index = transform(masked_occ, bishop.bishop_magic_table[sq].magic_number, 9);
 
                 // Store the attacks in your lookup table
                 bishop.magic_bishop_attacks[sq][magic_index as usize] = attacks;

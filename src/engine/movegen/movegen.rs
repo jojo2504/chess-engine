@@ -4,7 +4,7 @@ use crate::{
         r#move::{Move, MoveKind},
         piece::{Bishop, King, Knight, Pawn, Piece, Queen, Rook},
     },
-    utils::bit_operations::pop_1st_bit,
+    utils::{bit_operations::pop_1st_bit, string_format::display_bitstring_as_chessboard},
 };
 
 /// Add pawn moves to the current move generation cycle.
@@ -77,14 +77,14 @@ pub(crate) fn add_all_possible_moves_king(
     all_pseudo_legal_moves: &mut Vec<Move>,
 ) {
     let from_index = from.trailing_zeros();
-    let word_from = (1 << from_index) << 10;
+    let word_from = from_index << 10;
 
     while possible_moves != 0 {
         let to: u64 = 1 << possible_moves.trailing_zeros();
         let to_index = to.trailing_zeros();
         pop_1st_bit(&mut possible_moves);
 
-        let mut word: u16 = word_from | (1 << to_index) << 4;
+        let mut word: u16 = word_from as u16 | (to_index << 4) as u16;
 
         if (from_index as i32 - to_index as i32).abs() == 2 {
             if to_index == 2 || to_index == 58 {
@@ -109,7 +109,7 @@ pub(crate) fn add_all_possible_moves(
     piece: Piece,
     all_pseudo_legal_moves: &mut Vec<Move>,
 ) {
-    let word_from = (1u16 << from.trailing_zeros()) << 10;
+    let word_from: u16 = (from.trailing_zeros() as u16) << 10;
     while possible_moves != 0 {
         let to: u64 = 1 << possible_moves.trailing_zeros();
         pop_1st_bit(&mut possible_moves);
@@ -127,7 +127,6 @@ pub(crate) fn add_all_possible_moves(
 /// Generate all **SPEUDO LEGAL** moves for a given piece and color, updating the `all_pseudo_legal_moves` vector at the same time.
 pub(crate) fn get_all_possible_piece_moves(
     chessboard: &Chessboard,
-    piece_index: i32,
     side: Color,
     piece: Piece,
     all_pseudo_legal_moves: &mut Vec<Move>,
@@ -135,13 +134,15 @@ pub(crate) fn get_all_possible_piece_moves(
     let mut pieces = chessboard.get_piece(side, piece);
     let mut _possible_moves = 0u64;
 
-    match Piece::try_from(piece_index).unwrap() {
+    match piece {
         Piece::Pawn => {
             while pieces != 0 {
                 let from = 1 << pieces.trailing_zeros();
                 pop_1st_bit(&mut pieces);
 
                 _possible_moves = Pawn::compute_possible_moves(from, chessboard, side);
+                // println!("PAWN POSSIBLE MOVES:"); 
+                // display_bitstring_as_chessboard(&format!("{:064b}", _possible_moves));
                 add_all_possible_moves_pawn(
                     from,
                     _possible_moves,
@@ -156,7 +157,6 @@ pub(crate) fn get_all_possible_piece_moves(
                 pop_1st_bit(&mut pieces);
 
                 _possible_moves = Rook::compute_possible_moves(from, chessboard, side);
-                println!("computed possible rook moves");
                 add_all_possible_moves(
                     from,
                     _possible_moves,
@@ -172,6 +172,8 @@ pub(crate) fn get_all_possible_piece_moves(
                 pop_1st_bit(&mut pieces);
 
                 _possible_moves = Knight::compute_possible_moves(from, chessboard, side);
+                // println!("KNIGHT POSSIBLE MOVES:"); 
+                // display_bitstring_as_chessboard(&format!("{:064b}", _possible_moves));
                 add_all_possible_moves(
                     from,
                     _possible_moves,
@@ -187,6 +189,8 @@ pub(crate) fn get_all_possible_piece_moves(
                 pop_1st_bit(&mut pieces);
 
                 _possible_moves = Bishop::compute_possible_moves(from, chessboard, side);
+                // println!("BISHOP POSSIBLE MOVES:"); 
+                // display_bitstring_as_chessboard(&format!("{:064b}", _possible_moves));
                 add_all_possible_moves(
                     from,
                     _possible_moves,
@@ -202,11 +206,13 @@ pub(crate) fn get_all_possible_piece_moves(
                 pop_1st_bit(&mut pieces);
 
                 _possible_moves = Queen::compute_possible_moves(from, chessboard, side);
+                // println!("QUEEN POSSIBLE MOVES:"); 
+                // display_bitstring_as_chessboard(&format!("{:064b}", _possible_moves));
                 add_all_possible_moves(
                     from,
                     _possible_moves,
                     chessboard.get_all_pieces(),
-                    Piece::King,
+                    Piece::Queen,
                     all_pseudo_legal_moves,
                 );
             }
@@ -228,13 +234,13 @@ pub(crate) fn get_all_possible_piece_moves(
     }
 }
 
-/// Generate all **SPEUDO LEGAL** moves, updating the `all_pseudo_legal_moves` vector at the same time and returning the number of distinct **SPEUDO LEGAL** moves.
-pub(crate) fn generate_moves(chessboard: &Chessboard) -> Vec<Move> {
-    let mut all_pseudo_legal_moves = Vec::new();
+/// Generate all **PSEUDO LEGAL** moves and return them into a vector.
+pub fn generate_moves(chessboard: &Chessboard) -> Vec<Move> {
+    let mut all_pseudo_legal_moves = Vec::with_capacity(256);
+
     for i in 0..6 {
         get_all_possible_piece_moves(
             chessboard,
-            i,
             chessboard.state.turn_color,
             Piece::try_from(i).unwrap(),
             &mut all_pseudo_legal_moves,

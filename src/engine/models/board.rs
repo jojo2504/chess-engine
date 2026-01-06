@@ -1,13 +1,15 @@
-#![warn(missing_docs, dead_code)]
-#![deny(unused_imports, unused_mut)]
-#![warn(clippy::missing_docs_in_private_items)]
-#![deny(clippy::unwrap_used, clippy::expect_used)]
+// #![warn(missing_docs, dead_code)]
+// #![deny(unused_imports, unused_mut)]
+// #![warn(clippy::missing_docs_in_private_items)]
+// #![deny(clippy::unwrap_used, clippy::expect_used)]
 
-use std::collections::HashMap;
+use std::{collections::HashMap};
 use std::fmt;
 use std::str::FromStr;
 use serde::Deserialize;
-use crate::engine::{models::{r#move::{Move, MoveKind}, piece::{Bishop, King, Knight, Pawn, Piece, Rook, SuperPiece}, state::State}};
+use crate::as_064b;
+use crate::utils::string_format::display_bitstring_as_chessboard;
+use crate::{engine::models::{r#move::{Move, MoveKind}, piece::{Bishop, King, Knight, Pawn, Piece, Rook, SuperPiece}, state::State}};
 
 /// Represents a board rank, or horizontal line. `A1..H1`
 #[allow(missing_docs)]
@@ -170,6 +172,16 @@ impl Color {
     }
 }
 
+impl std::ops::BitXor<Color> for Color {
+    type Output = Color;
+    fn bitxor(self, rhs: Color) -> Color {
+        match (self as u8) ^ (rhs as u8) {
+            0 => Color::White,
+            _ => Color::Black,
+        }
+    }
+}
+
 /// Constant values of a board state.
 #[allow(clippy::upper_case_acronyms)]
 #[repr(u64)]
@@ -304,14 +316,14 @@ pub struct Chessboard {
     /// The 12 bitboards for each piece, starting with white then black, same order as [Piece].
     pub(crate) pieces: [u64; 12],
     /// Bitboard representing the position of all white pieces.
-    pub(crate) white_pieces: u64,
+    pub white_pieces: u64,
     /// Bitboard representing the position of all black pieces.
-    pub(crate) black_pieces: u64,
+    pub black_pieces: u64,
 
     /// Current state of the chessboard.
-    pub(crate) state: State,
+    pub state: State,
     /// Used to keep track of all previous and current states of the chessboard. 
-    pub(crate) state_stack: Vec<State>,
+    pub(crate) state_stack: Box<[State; 8192-1]>,
     /// Used to index the state_stack, representing the current ply, equivalent to a half-move.
     pub(crate) ply_index: usize
 }
@@ -327,6 +339,10 @@ impl Chessboard {
     pub fn new() -> Self {
         let fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
         Self::from_fen(fen).unwrap()
+    }
+
+    pub fn get_current_turn(&self) -> Color {
+        self.state.turn_color
     }
 
     /// Get the type of piece at the square
@@ -482,7 +498,7 @@ impl Chessboard {
     /// 
     /// For Example, calling `self.get_color_pieces(Color::White)` returns the bitboard with all white pieces.
     #[inline]
-    pub(crate) fn get_color_pieces(&self, turn_color: Color) -> u64 {
+    pub fn get_color_pieces(&self, turn_color: Color) -> u64 {
         match turn_color {
             Color::White => self.white_pieces,
             Color::Black => self.black_pieces,
@@ -496,47 +512,64 @@ impl Chessboard {
             || (self.state.turn_color == Color::Black && (self.state.can_black_king_castle || self.state.can_black_queen_castle))
     }
 
-    /// Checks if a given square is attacked by any other pieces of the opponant color.
+    /// Determines if a given square is under attack by any piece of the specified color.
     /// 
-    /// Used by [Chessboard::any_attacked_squared_by_side].
+    /// This method checks all piece types that could potentially attack the square:
+    /// - Knights: using precomputed move masks
+    /// - Rooks/Queens: using ray-based sliding move generation for straight lines
+    /// - Bishops/Queens: using ray-based sliding move generation for diagonals
+    /// - Pawns: using precomputed attack masks (direction depends on color)
+    /// - King: using precomputed move masks
+    /// 
+    /// The function first checks if pieces of the given type exist near the square using
+    /// precomputed rays/masks, then validates actual attack paths considering blocking pieces.
+    /// 
+    /// # Arguments
+    /// * `square` - Bitboard with a single bit set representing the square to check
+    /// * `attacking_side` - The color of pieces that might be attacking the square
+    /// 
+    /// # Returns
+    /// `true` if the square is attacked by any piece of `attacking_side`, `false` otherwise
     fn is_square_attacked_by_color(&self, square: u64, attacking_side: Color) -> bool {
         let square_index: usize = square.trailing_zeros() as usize;
+        // println!("attacking side {:?}", attacking_side);
         
-        // Check knight attacks
+        // Checks if there are any knight which attacks the square.
         let knights = self.get_piece(attacking_side, Piece::Knight);
         if (Knight::get_move_masks()[square_index] & knights) != 0 {
+            // println!("checked by knight");
             return true;
         }
 
         // Check rook and queen attacks (straight lines)
         let rooks_queens = self.get_piece(attacking_side, Piece::Queen) | 
-                          self.get_piece(attacking_side, Piece::Rook);
+        self.get_piece(attacking_side, Piece::Rook);
         if ((SuperPiece::rook_rays()[square_index] & rooks_queens) != 0)
-            && (Rook::rays(square, self) & rooks_queens) != 0 {
+        && ((Rook::compute_possible_moves(square, self, attacking_side.swap()) & rooks_queens) != 0) {
+            // println!("checked by rook queen");
             return true;
         }
-            
+        
         // Check bishop and queen attacks (diagonal)
         let bishops_queens = self.get_piece(attacking_side, Piece::Queen) |
-                            self.get_piece(attacking_side, Piece::Bishop);
+        self.get_piece(attacking_side, Piece::Bishop);
         if ((SuperPiece::bishop_rays()[square_index] & bishops_queens) != 0)
-            && ((Bishop::rays(square, self) & bishops_queens) != 0) {
+        && ((Bishop::compute_possible_moves(square, self, attacking_side.swap()) & bishops_queens) != 0) {
+            // println!("checked by bishop queen");
             return true;
         }
-
+        
         // Check pawn attacks
         let pawns = self.get_piece(attacking_side, Piece::Pawn);
-        let opponent_color = match attacking_side {
-            Color::White => Color::Black,
-            Color::Black => Color::White,
-        };
-        if (Pawn::get_attack_mask()[(opponent_color as usize + 1) * square_index] & pawns) != 0 {
+        if (Pawn::get_attack_mask()[(attacking_side as usize ^ 1) * 64 + square_index] & pawns) != 0 {
+            // println!("checked by pawn");
             return true;
         }
 
         // Check king attacks
         let king = self.get_piece(attacking_side, Piece::King);
         if (King::get_move_masks()[square_index] & king) != 0 {
+            // println!("checked by king");
             return true;
         }
 
@@ -550,10 +583,10 @@ impl Chessboard {
     pub(crate) fn any_attacked_squared_by_side(&self, mut squares: u64, attacking_side: Color) -> bool {
         while squares != 0 {
             let square = 1u64 << squares.trailing_zeros();
-            squares &= squares - 1;
             if self.is_square_attacked_by_color(square, attacking_side) {
                 return true;
             }
+            squares &= squares - 1;
         }
         false
     }
@@ -594,20 +627,390 @@ impl Chessboard {
         match side {
             Color::White => self.white_pieces ^= square,
             Color::Black => self.black_pieces ^= square,
-        }
+        };
+    }
+
+    pub(crate) fn save_state(&mut self) {
+        // TODO: Check if it is possible with unmake()
+        self.ply_index += 1;
+        self.state_stack[self.ply_index] = self.state;
+    }
+
+    pub(crate) fn is_occupied(&self, r#move: &Move) -> bool {
+        return self.get_all_pieces() & r#move.to != 0;
+    }
+
+    pub(crate) fn is_opponent_case_occupied_for_piece(&self, r#move: &Move, piece: Piece, current_color: Color) -> bool {
+        let opponent_color = current_color ^ Color::Black;
+        let opponent_board = self.get_piece(opponent_color, piece);
+        return self.get_all_pieces() & opponent_board & r#move.to != 0;
     }
 
     /// Make a move on the chessboard itself.
-    pub(crate) fn make(&mut self, r#move: &Move) {
-        todo!()
+    pub fn make(&mut self, r#move: &Move) {
+        let mv = r#move;
+        let kind = MoveKind::try_from(mv.move_kind_code()).ok();
+
+        // =====================
+        // CASTLING
+        // =====================
+        if mv.castle_flag() {
+            self.save_state();
+
+            match self.state.turn_color {
+                Color::White => {
+                    self.slide_piece(
+                        get_piece_index(Color::White, Piece::King),
+                        mv.from,
+                        mv.to,
+                        Color::White,
+                        Piece::King,
+                    );
+                    self.state.can_white_king_castle = false;
+                    self.state.can_white_queen_castle = false;
+                }
+                Color::Black => {
+                    self.slide_piece(
+                        get_piece_index(Color::Black, Piece::King),
+                        mv.from,
+                        mv.to,
+                        Color::Black,
+                        Piece::King,
+                    );
+                    self.state.can_black_king_castle = false;
+                    self.state.can_black_queen_castle = false;
+                }
+            }
+
+            match kind {
+                Some(MoveKind::KingCastle) => {
+                    match self.state.turn_color {
+                        Color::White => {
+                            self.slide_piece(
+                                get_piece_index(Color::White, Piece::Rook),
+                                Square::H1.bitboard(),
+                                Square::F1.bitboard(),
+                                Color::White,
+                                Piece::Rook,
+                            );
+                        }
+                        Color::Black => {
+                            self.slide_piece(
+                                get_piece_index(Color::Black, Piece::Rook),
+                                Square::H8.bitboard(),
+                                Square::F8.bitboard(),
+                                Color::Black,
+                                Piece::Rook,
+                            );
+                        }
+                    }
+                }
+
+                Some(MoveKind::QueenCastle) => {
+                    match self.state.turn_color {
+                        Color::White => {
+                            self.slide_piece(
+                                get_piece_index(Color::White, Piece::Rook),
+                                Square::A1.bitboard(),
+                                Square::D1.bitboard(),
+                                Color::White,
+                                Piece::Rook,
+                            );
+                        }
+                        Color::Black => {
+                            self.slide_piece(
+                                get_piece_index(Color::Black, Piece::Rook),
+                                Square::A8.bitboard(),
+                                Square::D8.bitboard(),
+                                Color::Black,
+                                Piece::Rook,
+                            );
+                        }
+                    }
+                }
+                _ => {}
+            }
+
+            self.state.en_passant_square = None;
+        }
+
+        // =====================
+        // EN PASSANT
+        // =====================
+        else if kind == Some(MoveKind::EpCapture) {
+            self.save_state();
+
+            // remove captured pawn
+            if self.state.turn_color == Color::White {
+                self.toggle_piece(
+                    get_piece_index(Color::Black, Piece::Pawn),
+                    mv.to >> 8,
+                    Color::Black,
+                    Piece::Pawn,
+                );
+            } else {
+                self.toggle_piece(
+                    get_piece_index(Color::White, Piece::Pawn),
+                    mv.to << 8,
+                    Color::White,
+                    Piece::Pawn,
+                );
+            }
+
+            // move capturing pawn
+            self.toggle_piece(
+                get_piece_index(self.state.turn_color, Piece::Pawn),
+                mv.from,
+                self.state.turn_color,
+                Piece::Pawn,
+            );
+            self.toggle_piece(
+                get_piece_index(self.state.turn_color, Piece::Pawn),
+                mv.to,
+                self.state.turn_color,
+                Piece::Pawn,
+            );
+
+            self.state.en_passant_square = None;
+        }
+
+        // =====================
+        // NORMAL MOVES
+        // =====================
+        else {
+            let is_capture = self.is_occupied(mv);
+
+            // ---- QUIET MOVE ----
+            if !is_capture {
+                if mv.piece_type == Piece::Pawn {
+                    match kind {
+                        Some(MoveKind::KnightPromotion) => {
+                            self.toggle_piece(
+                                get_piece_index(self.state.turn_color, Piece::Pawn),
+                                mv.from,
+                                self.state.turn_color,
+                                Piece::Pawn,
+                            );
+                            self.toggle_piece(
+                                get_piece_index(self.state.turn_color, Piece::Knight),
+                                mv.to,
+                                self.state.turn_color,
+                                Piece::Knight,
+                            );
+                        }
+                        Some(MoveKind::BishopPromotion) => {
+                            self.toggle_piece(
+                                get_piece_index(self.state.turn_color, Piece::Pawn),
+                                mv.from,
+                                self.state.turn_color,
+                                Piece::Pawn,
+                            );
+                            self.toggle_piece(
+                                get_piece_index(self.state.turn_color, Piece::Bishop),
+                                mv.to,
+                                self.state.turn_color,
+                                Piece::Bishop,
+                            );
+                        }
+                        Some(MoveKind::RookPromotion) => {
+                            self.toggle_piece(
+                                get_piece_index(self.state.turn_color, Piece::Pawn),
+                                mv.from,
+                                self.state.turn_color,
+                                Piece::Pawn,
+                            );
+                            self.toggle_piece(
+                                get_piece_index(self.state.turn_color, Piece::Rook),
+                                mv.to,
+                                self.state.turn_color,
+                                Piece::Rook,
+                            );
+                        }
+                        Some(MoveKind::QueenPromotion) => {
+                            self.toggle_piece(
+                                get_piece_index(self.state.turn_color, Piece::Pawn),
+                                mv.from,
+                                self.state.turn_color,
+                                Piece::Pawn,
+                            );
+                            self.toggle_piece(
+                                get_piece_index(self.state.turn_color, Piece::Queen),
+                                mv.to,
+                                self.state.turn_color,
+                                Piece::Queen,
+                            );
+                        }
+                        _ => {
+                            self.slide_piece(
+                                get_piece_index(self.state.turn_color, mv.piece_type),
+                                mv.from,
+                                mv.to,
+                                self.state.turn_color,
+                                mv.piece_type,
+                            );
+                        }
+                    }
+                } else {
+                    self.slide_piece(
+                        get_piece_index(self.state.turn_color, mv.piece_type),
+                        mv.from,
+                        mv.to,
+                        self.state.turn_color,
+                        mv.piece_type,
+                    );
+                }
+
+                self.state.captured_piece = None;
+            }
+
+            // ---- CAPTURE ----
+            else {
+                let enemy_color = self.state.turn_color ^ Color::Black;
+
+                for piece in Piece::ALL {
+                    if self.is_opponent_case_occupied_for_piece(r#move, piece, self.state.turn_color) {
+                        self.toggle_piece(
+                            get_piece_index(self.state.turn_color.swap(), piece),
+                            mv.to,
+                            self.state.turn_color.swap(), 
+                            piece);
+                        self.slide_piece(
+                            get_piece_index(self.state.turn_color, mv.piece_type),
+                            mv.from,
+                            mv.to,
+                            self.state.turn_color,
+                            mv.piece_type,
+                        );
+
+                        // ---- promotion-on-capture ----
+                        match kind {
+                            Some(MoveKind::KnightPromotionCapture) => {
+                                self.toggle_piece(
+                                    get_piece_index(self.state.turn_color, Piece::Pawn),
+                                    mv.to,
+                                    self.state.turn_color,
+                                    Piece::Pawn,
+                                );
+                                self.toggle_piece(
+                                    get_piece_index(self.state.turn_color, Piece::Knight),
+                                    mv.to,
+                                    self.state.turn_color,
+                                    Piece::Knight,
+                                );
+                            }
+                            Some(MoveKind::BishopPromotionCapture) => {
+                                self.toggle_piece(
+                                    get_piece_index(self.state.turn_color, Piece::Pawn),
+                                    mv.to,
+                                    self.state.turn_color,
+                                    Piece::Pawn,
+                                );
+                                self.toggle_piece(
+                                    get_piece_index(self.state.turn_color, Piece::Bishop),
+                                    mv.to,
+                                    self.state.turn_color,
+                                    Piece::Bishop,
+                                );
+                            }
+                            Some(MoveKind::RookPromotionCapture) => {
+                                self.toggle_piece(
+                                    get_piece_index(self.state.turn_color, Piece::Pawn),
+                                    mv.to,
+                                    self.state.turn_color,
+                                    Piece::Pawn,
+                                );
+                                self.toggle_piece(
+                                    get_piece_index(self.state.turn_color, Piece::Rook),
+                                    mv.to,
+                                    self.state.turn_color,
+                                    Piece::Rook,
+                                );
+                            }
+                            Some(MoveKind::QueenPromotionCapture) => {
+                                self.toggle_piece(
+                                    get_piece_index(self.state.turn_color, Piece::Pawn),
+                                    mv.to,
+                                    self.state.turn_color,
+                                    Piece::Pawn,
+                                );
+                                self.toggle_piece(
+                                    get_piece_index(self.state.turn_color, Piece::Queen),
+                                    mv.to,
+                                    self.state.turn_color,
+                                    Piece::Queen,
+                                );
+                            }
+                            _ => {}
+                        }
+
+                        self.state.captured_piece = Some(piece);
+                        break;
+                    }
+                }
+            }
+
+            self.save_state();
+
+            self.state.half_move_clock =
+                if self.state.captured_piece.is_some() || mv.piece_type == Piece::Pawn {
+                    0
+                } else {
+                    self.state.half_move_clock + 1
+                };
+
+            let white_check = self.get_piece(Color::White, Piece::Rook) & Rook::WHITE_CASTLING_MASK;
+            let black_check = self.get_piece(Color::Black, Piece::Rook) & Rook::BLACK_CASTLING_MASK;
+
+            self.state.can_white_king_castle &= (white_check & (1u64 << Square::H1 as u64)) != 0;
+            self.state.can_white_queen_castle &= (white_check & (1u64 << Square::A1 as u64)) != 0;
+            self.state.can_black_king_castle &= (black_check & (1u64 << Square::H8 as u64)) != 0;
+            self.state.can_black_queen_castle &= (black_check & (1u64 << Square::A8 as u64)) != 0;
+
+            self.state.en_passant_square = None;
+
+            match mv.piece_type {
+                Piece::King => {
+                    // moving the king cancels both castling rights
+                    // TODO: remove .unwrap()
+                    let square_from = Square::try_from(mv.from.trailing_zeros() as u64).ok().unwrap();
+                    match square_from {
+                        Square::E1 => {
+                            self.state.can_white_king_castle = false;
+                            self.state.can_white_queen_castle = false;
+                        }
+                        Square::E8 => {
+                            self.state.can_black_king_castle = false;
+                            self.state.can_black_queen_castle = false;
+                        }
+                        _ => {}
+                    }
+                }
+
+                Piece::Pawn => {
+                    // double pawn push sets en passant square
+                    if kind == Some(MoveKind::DoublePawnPush) {
+                        self.state.en_passant_square = Some(match self.state.turn_color {
+                            Color::White => Square::try_from((mv.to >> 8).trailing_zeros() as u64).unwrap(),
+                            Color::Black => Square::try_from((mv.to << 8).trailing_zeros() as u64).unwrap(),
+                        });
+                    }
+                }
+
+                _ => {}
+            }
+        }
+
+        // TODO: implement Zobrist
+        self.state.turn_color = self.state.turn_color.swap();
     }
     
     /// Unmake a move on the chessboard itself.
-    pub(crate) fn unmake(&mut self, _move: &Move) {
+    pub fn unmake(&mut self, _move: &Move) {
         self.state = self.state_stack[self.ply_index];
         self.ply_index -= 1;
 
         if _move.promotion_flag() {
+            // println!("promotion");
             if _move.capture_flag() {
                 if let Some(captured_piece) = self.state.captured_piece {
                     self.toggle_piece(get_piece_index(self.state.turn_color.swap(), captured_piece), _move.to, self.state.turn_color, captured_piece);
@@ -625,6 +1028,7 @@ impl Chessboard {
         }
 
         else if _move.castle_flag() {
+            // println!("castle");
             self.slide_piece(get_piece_index(self.state.turn_color, Piece::King), _move.to, _move.from, self.state.turn_color, Piece::King);
             
             match _move.move_kind() {
@@ -645,6 +1049,7 @@ impl Chessboard {
         }
 
         else if _move.move_kind() == MoveKind::EpCapture {
+            // println!("en passant");
             self.slide_piece(get_piece_index(self.state.turn_color, Piece::Pawn), _move.to, _move.from, self.state.turn_color, Piece::Pawn);
             match self.state.turn_color {
                 Color::White => self.toggle_piece(get_piece_index(Color::Black, Piece::Pawn), _move.to >> 8, Color::Black, Piece::Pawn),
@@ -653,6 +1058,7 @@ impl Chessboard {
         }
         
         else {
+            // println!("normal");
             self.slide_piece(get_piece_index(self.state.turn_color, _move.piece_type), _move.to, _move.from, self.state.turn_color, _move.piece_type);
 
             if let Some(captured_piece) = self.state.captured_piece {
@@ -664,6 +1070,10 @@ impl Chessboard {
     /// Checks if the current tested side king is in check or not
     pub(crate) fn is_in_check(&mut self, side: Color) -> bool {
         let king = self.get_piece(side, Piece::King);
+
+        if king == 0 {
+            panic!("why is king 0 {}", king);
+        }
         self.is_square_attacked_by_color(king, side.swap())
     }
 }
@@ -675,7 +1085,7 @@ impl Default for Chessboard {
             white_pieces: 0u64,
             black_pieces: 0u64,
             state: State::default(),
-            state_stack: Vec::with_capacity(8191),
+            state_stack: Box::new([State::default(); 8191]),
             ply_index: 0,
         }
     }

@@ -4,6 +4,7 @@
 #![deny(clippy::unwrap_used, clippy::expect_used)]
 
 use core::fmt;
+use std::fmt::Debug;
 
 use crate::engine::models::{board::{Chessboard, Square, get_piece_index_raw}, piece::{Pawn, Piece}};
 
@@ -50,8 +51,9 @@ impl TryFrom<u8> for MoveKind {
 }
 
 /// All data needed to encode one move.
+//#[derive(PartialEq, Eq, Clone, Debug)]
 #[derive(PartialEq, Eq, Clone)]
-pub(crate) struct Move {
+pub struct Move {
     /// The information required to uniquely describe a move is the initial square, also called from-, origin- or departure square, and the target square, 
     /// also called to- or destination square, and in case of promotions the promoted piece code. While this from-to information is also sufficient for castling
     /// in standard chess, due to the otherwise impossible double king step, it might not in Chess960. 
@@ -176,7 +178,7 @@ impl Move {
     }
     
     /// Decodes incoming uci encoded move into a `Move` object.
-    pub(crate) fn decode_uci(uci_move: &str, chessboard: &Chessboard) -> Result<Move, String> {
+    pub fn decode_uci(uci_move: &str, chessboard: &Chessboard) -> Result<Move, String> {
         if uci_move.len() < 4 {
             return Err("UCI move must be at least 4 characters".to_string());
         }
@@ -221,11 +223,37 @@ impl Move {
 
 impl fmt::Display for Move {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let from = Square::try_from(self.from);
-        let to = Square::try_from(self.to);
+        let from = Square::try_from(self.from.trailing_zeros() as u64);
+        let to = Square::try_from(self.to.trailing_zeros() as u64);
         if let Ok(from) = from && let Ok(to) = to {
-            write!(f, "{:?}{:?}", from, to)?
+            let from_str = format!("{:?}", from).to_lowercase();
+            let to_str = format!("{:?}", to).to_lowercase();
+            let promotion_char = if self.promotion_flag() {
+                let move_kind_code = self.move_kind_code();
+                let promo_code = if self.capture_flag() {
+                    move_kind_code - 4
+                } else {
+                    move_kind_code
+                };
+                
+                Pawn::get_promotion_map()
+                    .iter()
+                    .find(|(_, v)| **v == promo_code)
+                    .map(|(k, _)| k.to_string())
+                    .unwrap_or_default()
+            } else {
+                String::new()
+            };
+            write!(f, "{}{}{}", from_str, to_str, promotion_char)
         }
-        Ok(())
+        else {
+            Err(std::fmt::Error)
+        }
+    }
+}
+
+impl Debug for Move {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", format!("{}", self))
     }
 }
