@@ -474,7 +474,7 @@ impl Chessboard {
     /// Returns the bitboard corresponding to the searched piece.
     /// 
     /// For example, `self.get_piece(Color::White, Piece::Pawn)` returns the bitboard with all white pawns.
-    #[inline]
+    #[inline(always)]
     pub(crate) fn get_piece(&self, color: Color, piece: Piece) -> u64 {
         self.pieces[color as usize * 6 + piece as usize]
     }
@@ -535,7 +535,7 @@ impl Chessboard {
         // println!("attacking side {:?}", attacking_side);
         
         // Checks if there are any knight which attacks the square.
-        let knights = self.get_piece(attacking_side, Piece::Knight);
+        let knights = self.pieces[2 + 6 * attacking_side as usize];
         if (Knight::get_move_masks()[square_index] & knights) != 0 {
             // println!("checked by knight");
             return true;
@@ -630,6 +630,7 @@ impl Chessboard {
         };
     }
 
+    #[inline(always)]
     pub(crate) fn save_state(&mut self) {
         // TODO: Check if it is possible with unmake()
         self.ply_index += 1;

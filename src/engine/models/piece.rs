@@ -83,13 +83,13 @@ pub struct Pawn {
 
 impl Pawn {
     /// Returns the precomputed attack masks for pawns.
-    pub fn get_attack_mask() -> [u64; 128] {
-        pawn().pawn_attack_masks
+    pub fn get_attack_mask() -> &'static [u64; 128] {
+        &pawn().pawn_attack_masks
     }
 
     /// Returns a precalculated char to byte move code hashmap.
-    pub(crate) fn get_promotion_map() -> HashMap<char, u8> {
-        pawn().promotion_map.clone()
+    pub(crate) fn get_promotion_map() -> &'static HashMap<char, u8> {
+        &pawn().promotion_map
     }
 
     /// Compute possible moves for a given pawn and its color.
@@ -183,8 +183,8 @@ pub(crate) struct Knight {
 
 impl Knight {
     /// Returns the precomputed move masks for all squares.
-    pub(crate) fn get_move_masks() -> [u64; 64] {
-        knight().knight_move_masks
+    pub(crate) fn get_move_masks() -> &'static [u64; 64] {
+        &knight().knight_move_masks
     }
 
     /// Computes the possible moves for a knight at a given location,
@@ -269,8 +269,8 @@ pub(crate) struct King {
 
 impl King {
     /// Returns the king move mask.
-    pub(crate) fn get_move_masks() -> [u64; 64] {
-        king().king_move_masks
+    pub(crate) fn get_move_masks() -> &'static [u64; 64] {
+        &king().king_move_masks
     }
 
     /// Compute and returns the possible king moves without overlapping its own pieces.
