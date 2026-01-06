@@ -84,13 +84,13 @@ impl TryFrom<i32> for Rank {
 
 /// Represents a board file, or vertical line. `A1..A8`
 #[allow(missing_docs)]
-pub(crate) enum File {
+pub enum File {
     FileA, FileB, FileC, FileD, FileE, FileF, FileG, FileH
 }
 
 impl File {
     /// Returns the mask of a file.
-    pub(crate) fn mask(self) -> u64 {
+    pub fn mask(self) -> u64 {
         use File::*;
         match self {
             FileA => 0x0101010101010101,
@@ -217,7 +217,7 @@ impl Board {
 #[allow(missing_docs)]
 #[allow(clippy::missing_docs_in_private_items)]
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq)]
-pub(crate) enum Square {
+pub enum Square {
     A1 = 0, B1 = 1, C1 = 2, D1 = 3, E1 = 4, F1 = 5, G1 = 6, H1 = 7,
     A2 = 8, B2 = 9, C2 = 10, D2 = 11, E2 = 12, F2 = 13, G2 = 14, H2 = 15,
     A3 = 16, B3 = 17, C3 = 18, D3 = 19, E3 = 20, F3 = 21, G3 = 22, H3 = 23,
@@ -230,17 +230,17 @@ pub(crate) enum Square {
 
 impl Square {
     /// Get bitboard mask for this square
-    pub(crate) const fn bitboard(self) -> u64 {
+    pub const fn bitboard(self) -> u64 {
         1u64 << (self as u64)
     }
     
     /// Get file
-    pub(crate) fn file(self) -> File {
+    pub fn file(self) -> File {
         File::from_i32_unchecked(self as i32 % 8)
     }
     
     /// Get rank
-    pub(crate) fn rank(self) -> Rank {
+    pub fn rank(self) -> Rank {
         Rank::from_i32_unchecked(self as i32 % 8)
     }
 }
@@ -291,7 +291,7 @@ impl FromStr for Square {
 
 /// Returns the piece index for indexing `self.pieces`.
 #[inline]
-pub(crate) fn get_piece_index(color: Color, piece: Piece) -> usize {
+pub fn get_piece_index(color: Color, piece: Piece) -> usize {
     color as usize * 6 + piece as usize
 }
 
@@ -475,7 +475,7 @@ impl Chessboard {
     /// 
     /// For example, `self.get_piece(Color::White, Piece::Pawn)` returns the bitboard with all white pawns.
     #[inline(always)]
-    pub(crate) fn get_piece(&self, color: Color, piece: Piece) -> u64 {
+    pub fn get_piece(&self, color: Color, piece: Piece) -> u64 {
         self.pieces[color as usize * 6 + piece as usize]
     }
 
@@ -602,17 +602,18 @@ impl Chessboard {
     /// 
     /// # Exemple 
     /// ```rust
-    /// use chess_engine::engine::models::board::{Chessboard, Square, Color};
-    /// use chess_engine::engine::models::piece::Piece;
+    /// use lib::engine::models::board::{Chessboard, Square, Color};
+    /// use lib::engine::models::piece::Piece;
+    /// use lib::engine::models::board::get_piece_index;
     /// 
     /// let mut chessboard = Chessboard::new();
     /// // Move a pawn from A2 to A3
-    /// chessboard.slide_piece(&mut chessboard.get_piece(Color::White, Piece::Pawn), Square::A2.bitboard(), Square::A3.bitboard(), Color::White);
+    /// chessboard.slide_piece(get_piece_index(Color::White, Piece::Pawn), Square::A2.bitboard(), Square::A3.bitboard(), Color::White, Piece::Pawn);
     /// // Remove a captured piece (random square in this example)
-    /// chessboard.toggle_piece(&mut chessboard.get_piece(Color::White, Piece::Pawn), Square::A2.bitboard(), Color::White);
+    /// chessboard.toggle_piece(get_piece_index(Color::White, Piece::Pawn), Square::A2.bitboard(), Color::White, Piece::Pawn);
     /// ```
     #[inline]
-    pub(crate) fn slide_piece(&mut self, piece_index: usize, from: u64, to: u64, side: Color, piece: Piece) {
+    pub fn slide_piece(&mut self, piece_index: usize, from: u64, to: u64, side: Color, piece: Piece) {
         self.pieces[piece_index] ^= from ^ to;
         match side {
             Color::White => self.white_pieces ^= from ^ to,
@@ -621,7 +622,7 @@ impl Chessboard {
     }
 
     /// Use this method when required to put a piece without moving one or removing a piece, like during game initialization, captures or promotions.
-    pub(crate) fn toggle_piece(&mut self, piece_index: usize, square: u64, side: Color, piece: Piece) {
+    pub fn toggle_piece(&mut self, piece_index: usize, square: u64, side: Color, piece: Piece) {
         self.pieces[piece_index] ^= square;
         match side {
             Color::White => self.white_pieces ^= square,
@@ -778,10 +779,8 @@ impl Chessboard {
         // NORMAL MOVES
         // =====================
         else {
-            let is_capture = self.is_occupied(mv);
-
             // ---- QUIET MOVE ----
-            if !is_capture {
+            if !mv.captured_piece.is_some() {
                 if mv.piece_type == Piece::Pawn {
                     match kind {
                         Some(MoveKind::KnightPromotion) => {
@@ -865,99 +864,87 @@ impl Chessboard {
 
             // ---- CAPTURE ----
             else {
-                let enemy_color = self.state.turn_color ^ Color::Black;
+                let captured_piece = mv.captured_piece.unwrap();
 
-                for piece in Piece::ALL {
-                    if self.is_opponent_case_occupied_for_piece(r#move, piece, self.state.turn_color) {
-                        // Remove captured piece
+                // Remove captured piece
+                self.toggle_piece(
+                    get_piece_index(self.state.turn_color.swap(), captured_piece),
+                    mv.to,
+                    self.state.turn_color.swap(), 
+                    captured_piece
+                );
+
+                // ---- promotion-on-capture ----
+                match kind {
+                    Some(MoveKind::KnightPromotionCapture) => {
                         self.toggle_piece(
-                            get_piece_index(self.state.turn_color.swap(), piece),
+                            get_piece_index(self.state.turn_color, Piece::Pawn),
+                            mv.from,
+                            self.state.turn_color,
+                            Piece::Pawn,
+                        );
+                        self.toggle_piece(
+                            get_piece_index(self.state.turn_color, Piece::Knight),
                             mv.to,
-                            self.state.turn_color.swap(), 
-                            piece);
-                        
-                        // self.slide_piece(
-                        //     get_piece_index(self.state.turn_color, mv.piece_type),
-                        //     mv.from,
-                        //     mv.to,
-                        //     self.state.turn_color,
-                        //     mv.piece_type,
-                        // );
-
-                        // ---- promotion-on-capture ----
-                        match kind {
-                            Some(MoveKind::KnightPromotionCapture) => {
-                                self.toggle_piece(
-                                    get_piece_index(self.state.turn_color, Piece::Pawn),
-                                    mv.from,
-                                    self.state.turn_color,
-                                    Piece::Pawn,
-                                );
-                                self.toggle_piece(
-                                    get_piece_index(self.state.turn_color, Piece::Knight),
-                                    mv.to,
-                                    self.state.turn_color,
-                                    Piece::Knight,
-                                );
-                            }
-                            Some(MoveKind::BishopPromotionCapture) => {
-                                self.toggle_piece(
-                                    get_piece_index(self.state.turn_color, Piece::Pawn),
-                                    mv.from,
-                                    self.state.turn_color,
-                                    Piece::Pawn,
-                                );
-                                self.toggle_piece(
-                                    get_piece_index(self.state.turn_color, Piece::Bishop),
-                                    mv.to,
-                                    self.state.turn_color,
-                                    Piece::Bishop,
-                                );
-                            }
-                            Some(MoveKind::RookPromotionCapture) => {
-                                self.toggle_piece(
-                                    get_piece_index(self.state.turn_color, Piece::Pawn),
-                                    mv.from,
-                                    self.state.turn_color,
-                                    Piece::Pawn,
-                                );
-                                self.toggle_piece(
-                                    get_piece_index(self.state.turn_color, Piece::Rook),
-                                    mv.to,
-                                    self.state.turn_color,
-                                    Piece::Rook,
-                                );
-                            }
-                            Some(MoveKind::QueenPromotionCapture) => {
-                                self.toggle_piece(
-                                    get_piece_index(self.state.turn_color, Piece::Pawn),
-                                    mv.from,
-                                    self.state.turn_color,
-                                    Piece::Pawn,
-                                );
-                                self.toggle_piece(
-                                    get_piece_index(self.state.turn_color, Piece::Queen),
-                                    mv.to,
-                                    self.state.turn_color,
-                                    Piece::Queen,
-                                );
-                            }
-                            _ => {
-                                // Regular capture, not promotion
-                                self.slide_piece(
-                                    get_piece_index(self.state.turn_color, mv.piece_type),
-                                    mv.from,
-                                    mv.to,
-                                    self.state.turn_color,
-                                    mv.piece_type,
-                                );
-                            }
-                        }
-
-                        self.state.captured_piece = Some(piece);
-                        break;
+                            self.state.turn_color,
+                            Piece::Knight,
+                        );
+                    }
+                    Some(MoveKind::BishopPromotionCapture) => {
+                        self.toggle_piece(
+                            get_piece_index(self.state.turn_color, Piece::Pawn),
+                            mv.from,
+                            self.state.turn_color,
+                            Piece::Pawn,
+                        );
+                        self.toggle_piece(
+                            get_piece_index(self.state.turn_color, Piece::Bishop),
+                            mv.to,
+                            self.state.turn_color,
+                            Piece::Bishop,
+                        );
+                    }
+                    Some(MoveKind::RookPromotionCapture) => {
+                        self.toggle_piece(
+                            get_piece_index(self.state.turn_color, Piece::Pawn),
+                            mv.from,
+                            self.state.turn_color,
+                            Piece::Pawn,
+                        );
+                        self.toggle_piece(
+                            get_piece_index(self.state.turn_color, Piece::Rook),
+                            mv.to,
+                            self.state.turn_color,
+                            Piece::Rook,
+                        );
+                    }
+                    Some(MoveKind::QueenPromotionCapture) => {
+                        self.toggle_piece(
+                            get_piece_index(self.state.turn_color, Piece::Pawn),
+                            mv.from,
+                            self.state.turn_color,
+                            Piece::Pawn,
+                        );
+                        self.toggle_piece(
+                            get_piece_index(self.state.turn_color, Piece::Queen),
+                            mv.to,
+                            self.state.turn_color,
+                            Piece::Queen,
+                        );
+                    }
+                    _ => {
+                        // Regular capture, not promotion
+                        self.slide_piece(
+                            get_piece_index(self.state.turn_color, mv.piece_type),
+                            mv.from,
+                            mv.to,
+                            self.state.turn_color,
+                            mv.piece_type,
+                        );
                     }
                 }
+
+                self.state.captured_piece = mv.captured_piece;                 
             }
 
             self.save_state();

@@ -75,12 +75,13 @@ pub struct Move {
     /// Cached from- square as `u64` calculated in the constructor.
     pub(crate) from: u64,
     /// Cached to- square as `u64` calculated in the constructor.
-    pub(crate) to: u64
+    pub(crate) to: u64,
+    pub(crate) captured_piece: Option<Piece>
 }
 
 impl Move {
     /// [Move]'s constructor taking a `word` and a `piece type`.
-    pub(crate) fn from(word: u16, piece_type: Piece) -> Self {
+    pub(crate) fn from(word: u16, piece_type: Piece, captured_piece: Option<Piece>) -> Self {
         let from = 1u64 << (word >> 10);
         let to = 1u64 << ((word >> 4) & 0x3F);
         
@@ -89,6 +90,7 @@ impl Move {
             piece_type,
             from,
             to,
+            captured_piece
         }
     }
     
@@ -210,10 +212,20 @@ impl Move {
         // Determine the special move code
         word |= Self::uci_move_kind_code(from_bitboard, to_bitboard, chessboard, promotion_char) as u16;
         
+        // Determine if he the move has a captured piece.
+        let mut captured_piece: Option<Piece> = None;
+        if to_bitboard & chessboard.get_all_pieces() != 0 {
+            for (i, piece) in chessboard.pieces.iter().enumerate() {
+                if to_bitboard & piece != 0 {
+                    captured_piece = Some(Piece::try_from((i % 6) as i32).unwrap())
+                }
+            }
+        }
+
         // Find which piece is on the from square
         for piece_type_index in 0..6 {
             if (chessboard.pieces[get_piece_index_raw(chessboard.state.turn_color, piece_type_index)] & from_bitboard) != 0 {
-                return Ok(Move::from(word, Piece::try_from(piece_type_index as i32).unwrap()));
+                return Ok(Move::from(word, Piece::try_from(piece_type_index as i32).unwrap(), captured_piece));
             }
         }
         

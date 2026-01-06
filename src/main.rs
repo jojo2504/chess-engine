@@ -43,7 +43,7 @@ fn main() -> anyhow::Result<()> {
         // let uci = "b2b3";
         // println!("{}", Move::decode_uci(uci, &chessboard).unwrap());
         // println!("normal perft: ");
-        println!("{}", perft(&mut chessboard, 6));
+        println!("{}", perft(&mut chessboard, 5));
         // println!("white pieces");
         // display_bitstring_as_chessboard(&as_064b(chessboard.white_pieces));
         // println!("------------");

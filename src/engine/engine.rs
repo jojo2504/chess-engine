@@ -24,10 +24,11 @@ pub struct Connected;
 /// 
 /// # Exemples
 /// ```rust
-/// use chess_engine::engine::engine::Engine;
+/// use lib::engine::engine::Engine;
 /// 
-/// let engine = Engine::new();
-/// engine.start_uci_game(); // connecting and playing against another player using the litchess bot bridge
+/// let mut engine = Engine::new();
+/// // let mut engine = engine.validate_uci_connection().unwrap();
+/// // engine.start_uci_game(); // connecting and playing against another player using the litchess bot bridge
 /// ```
 pub struct Engine<State = NotConnected> {
     /// Internal chessboard used to play by the engine itself.

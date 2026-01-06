@@ -11,21 +11,33 @@ use crate::{
 pub(crate) fn add_all_possible_moves_pawn(
     from: u64,
     mut possible_moves: u64,
-    all_pieces: u64,
+    chessboard: &Chessboard,
     all_pseudo_legal_moves: &mut Vec<Move>,
 ) {
     let from_index = from.trailing_zeros();
     let word_from = (from_index << 10) as u16;
 
     while possible_moves != 0 {
-        let to_index = possible_moves.trailing_zeros();
+        let to: u64 = 1 << possible_moves.trailing_zeros();
+        let to_index = to.trailing_zeros();
+
         pop_1st_bit(&mut possible_moves);
 
         let mut word: u16 = word_from | (to_index << 4) as u16;
+        
+        let is_capture = ((1u64 << to_index) & chessboard.get_all_pieces()) != 0;
+        
+        let mut captured_piece: Option<Piece> = None;
+        if is_capture {
+            for (i, piece) in chessboard.pieces.iter().enumerate() {
+                if to & piece != 0 {
+                    captured_piece = Some(Piece::try_from((i % 6) as i32).unwrap())
+                }
+            }
+        }
 
         // Promotion moves (ranks 0-7 or 56-63)
         if !(8..56).contains(&to_index) {
-            let is_capture = ((1u64 << to_index) & all_pieces) != 0;
             let promotions = if is_capture {
                 &[
                     MoveKind::KnightPromotionCapture,
@@ -44,12 +56,11 @@ pub(crate) fn add_all_possible_moves_pawn(
 
             for &promotion in promotions {
                 let promotion_word = word | (promotion as u16);
-                let _move = Move::from(promotion_word, Piece::Pawn);
+                let _move = Move::from(promotion_word, Piece::Pawn, captured_piece);
                 all_pseudo_legal_moves.push(_move);
             }
         } else {
             // Regular pawn moves - determine special code
-            let is_capture = ((1u64 << to_index) & all_pieces) != 0;
             let distance = (from_index as i32 - to_index as i32).abs();
 
             let special_code = if is_capture {
@@ -63,7 +74,7 @@ pub(crate) fn add_all_possible_moves_pawn(
             };
 
             word |= special_code as u16;
-            let _move = Move::from(word, Piece::Pawn);
+            let _move = Move::from(word, Piece::Pawn, captured_piece);
             all_pseudo_legal_moves.push(_move);
         }
     }
@@ -73,7 +84,7 @@ pub(crate) fn add_all_possible_moves_pawn(
 pub(crate) fn add_all_possible_moves_king(
     from: u64,
     mut possible_moves: u64,
-    all_pieces: u64,
+    chessboard: &Chessboard,
     all_pseudo_legal_moves: &mut Vec<Move>,
 ) {
     let from_index = from.trailing_zeros();
@@ -85,6 +96,7 @@ pub(crate) fn add_all_possible_moves_king(
         pop_1st_bit(&mut possible_moves);
 
         let mut word: u16 = word_from as u16 | (to_index << 4) as u16;
+        let mut captured_piece: Option<Piece> = None;
 
         if (from_index as i32 - to_index as i32).abs() == 2 {
             if to_index == 2 || to_index == 58 {
@@ -92,11 +104,16 @@ pub(crate) fn add_all_possible_moves_king(
             } else if to_index == 6 || to_index == 62 {
                 word |= MoveKind::KingCastle as u16;
             }
-        } else if to & all_pieces != 0 {
+        } else if to & chessboard.get_all_pieces() != 0 {
             word |= MoveKind::Captures as u16;
+            for (i, piece) in chessboard.pieces.iter().enumerate() {
+                if to & piece != 0 {
+                    captured_piece = Some(Piece::try_from((i % 6) as i32).unwrap())
+                }
+            }
         }
 
-        let _move = Move::from(word, Piece::King);
+        let _move = Move::from(word, Piece::King, captured_piece);
         all_pseudo_legal_moves.push(_move);
     }
 }
@@ -105,7 +122,7 @@ pub(crate) fn add_all_possible_moves_king(
 pub(crate) fn add_all_possible_moves(
     from: u64,
     mut possible_moves: u64,
-    all_pieces: u64,
+    chessboard: &Chessboard,
     piece: Piece,
     all_pseudo_legal_moves: &mut Vec<Move>,
 ) {
@@ -115,11 +132,18 @@ pub(crate) fn add_all_possible_moves(
         pop_1st_bit(&mut possible_moves);
 
         let mut word: u16 = word_from | ((to.trailing_zeros() as u16) << 4);
-        if to & all_pieces != 0 {
+
+        let mut captured_piece: Option<Piece> = None;
+        if to & chessboard.get_all_pieces() != 0 {
             word |= MoveKind::Captures as u16;
+            for (i, piece) in chessboard.pieces.iter().enumerate() {
+                if to & piece != 0 {
+                    captured_piece = Some(Piece::try_from((i % 6) as i32).unwrap())
+                }
+            }
         }
 
-        let _move = Move::from(word, piece);
+        let _move = Move::from(word, piece, captured_piece);
         all_pseudo_legal_moves.push(_move);
     }
 }
@@ -146,7 +170,7 @@ pub(crate) fn get_all_possible_piece_moves(
                 add_all_possible_moves_pawn(
                     from,
                     _possible_moves,
-                    chessboard.get_all_pieces(),
+                    chessboard,
                     all_pseudo_legal_moves,
                 );
             }
@@ -160,7 +184,7 @@ pub(crate) fn get_all_possible_piece_moves(
                 add_all_possible_moves(
                     from,
                     _possible_moves,
-                    chessboard.get_all_pieces(),
+                    chessboard,
                     Piece::Rook,
                     all_pseudo_legal_moves,
                 );
@@ -177,7 +201,7 @@ pub(crate) fn get_all_possible_piece_moves(
                 add_all_possible_moves(
                     from,
                     _possible_moves,
-                    chessboard.get_all_pieces(),
+                    chessboard,
                     Piece::Knight,
                     all_pseudo_legal_moves,
                 );
@@ -194,7 +218,7 @@ pub(crate) fn get_all_possible_piece_moves(
                 add_all_possible_moves(
                     from,
                     _possible_moves,
-                    chessboard.get_all_pieces(),
+                    chessboard,
                     Piece::Bishop,
                     all_pseudo_legal_moves,
                 );
@@ -211,7 +235,7 @@ pub(crate) fn get_all_possible_piece_moves(
                 add_all_possible_moves(
                     from,
                     _possible_moves,
-                    chessboard.get_all_pieces(),
+                    chessboard,
                     Piece::Queen,
                     all_pseudo_legal_moves,
                 );
@@ -227,7 +251,7 @@ pub(crate) fn get_all_possible_piece_moves(
             add_all_possible_moves_king(
                 pieces,
                 _possible_moves,
-                chessboard.get_all_pieces(),
+                chessboard,
                 all_pseudo_legal_moves,
             );
         }
