@@ -5,5 +5,5 @@ pub(crate) mod state;
 /// Chessboard representation and operations.
 pub mod board;
 /// Move generation and validation.
-pub(crate) mod r#move;
+pub mod r#move;
 mod zobrist;

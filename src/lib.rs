@@ -6,6 +6,11 @@ use crate::engine::{models::{board::Chessboard, r#move::{Move, MoveKind}}, moveg
 pub mod engine;
 pub mod utils;
 
+pub fn pause(banner: &str) {
+    println!("{}", banner);
+    console::Term::stdout().read_char();
+}
+
 /// Performs a `perft` performance and debugging test returning the total number of positions at the end
 pub fn perft(chessboard: &mut Chessboard, depth: u8) -> u64 {
     if depth == 0 {
@@ -15,12 +20,22 @@ pub fn perft(chessboard: &mut Chessboard, depth: u8) -> u64 {
     let mut nodes = 0;
     let all_pseudo_legal_moves = generate_moves(chessboard);
     let n_moves = all_pseudo_legal_moves.len();
+    let mut i = 1;
     for _move in all_pseudo_legal_moves.iter().take(n_moves) {
+        println!("Moves = {:?} ({})", all_pseudo_legal_moves, n_moves);
+        pause(format!("Before make {} (# {}/{}) as {:?}", _move, i, n_moves, chessboard.get_current_turn()).as_str());
         chessboard.make(_move);
+        println!("{}", chessboard);
+
         if !chessboard.is_in_check(chessboard.state_stack[chessboard.ply_index - 1].turn_color) {
             nodes += perft(chessboard, depth - 1);
         }
+        println!("Moves = {:?} ({})", all_pseudo_legal_moves, n_moves);
+        pause(format!("Before [un]make {} as {:?}", _move, chessboard.get_current_turn()).as_str());
         chessboard.unmake(_move);
+        println!("{}", chessboard);
+
+        i += 1;
     }
 
     nodes

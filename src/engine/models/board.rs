@@ -319,7 +319,7 @@ pub struct Chessboard {
     pub(crate) black_pieces: u64,
 
     /// Current state of the chessboard.
-    pub(crate) state: State,
+    pub state: State,
     /// Used to keep track of all previous and current states of the chessboard. 
     pub(crate) state_stack: Box<[State; 8192-1]>,
     /// Used to index the state_stack, representing the current ply, equivalent to a half-move.
@@ -337,6 +337,10 @@ impl Chessboard {
     pub fn new() -> Self {
         let fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
         Self::from_fen(fen).unwrap()
+    }
+
+    pub fn get_current_turn(&self) -> Color {
+        self.state.turn_color
     }
 
     /// Get the type of piece at the square
@@ -645,7 +649,7 @@ impl Chessboard {
     }
 
     /// Make a move on the chessboard itself.
-    pub(crate) fn make(&mut self, r#move: &Move) {
+    pub fn make(&mut self, r#move: &Move) {
         let mv = r#move;
         let kind = MoveKind::try_from(mv.move_kind_code()).ok();
 
@@ -1004,7 +1008,7 @@ impl Chessboard {
     }
     
     /// Unmake a move on the chessboard itself.
-    pub(crate) fn unmake(&mut self, _move: &Move) {
+    pub fn unmake(&mut self, _move: &Move) {
         self.ply_index -= 1;
         self.state = self.state_stack[self.ply_index];
 
