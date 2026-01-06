@@ -1,7 +1,7 @@
 /// Piece representation and types for the chess engine.
-pub(crate) mod piece;
+pub mod piece;
 /// Game state management and tracking.
-pub(crate) mod state;
+pub mod state;
 /// Chessboard representation and operations.
 pub mod board;
 /// Move generation and validation.

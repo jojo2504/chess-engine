@@ -1,12 +1,14 @@
-#![warn(missing_docs, dead_code)]
-#![deny(unused_imports, unused_mut)]
-#![warn(clippy::missing_docs_in_private_items)]
-#![deny(clippy::unwrap_used, clippy::expect_used)]
+// #![warn(missing_docs, dead_code)]
+// #![deny(unused_imports, unused_mut)]
+// #![warn(clippy::missing_docs_in_private_items)]
+// #![deny(clippy::unwrap_used, clippy::expect_used)]
 
 use std::{collections::HashMap};
 use std::fmt;
 use std::str::FromStr;
 use serde::Deserialize;
+use crate::as_064b;
+use crate::utils::string_format::display_bitstring_as_chessboard;
 use crate::{engine::models::{r#move::{Move, MoveKind}, piece::{Bishop, King, Knight, Pawn, Piece, Rook, SuperPiece}, state::State}};
 
 /// Represents a board rank, or horizontal line. `A1..H1`
@@ -314,9 +316,9 @@ pub struct Chessboard {
     /// The 12 bitboards for each piece, starting with white then black, same order as [Piece].
     pub(crate) pieces: [u64; 12],
     /// Bitboard representing the position of all white pieces.
-    pub(crate) white_pieces: u64,
+    pub white_pieces: u64,
     /// Bitboard representing the position of all black pieces.
-    pub(crate) black_pieces: u64,
+    pub black_pieces: u64,
 
     /// Current state of the chessboard.
     pub state: State,
@@ -496,7 +498,7 @@ impl Chessboard {
     /// 
     /// For Example, calling `self.get_color_pieces(Color::White)` returns the bitboard with all white pieces.
     #[inline]
-    pub(crate) fn get_color_pieces(&self, turn_color: Color) -> u64 {
+    pub fn get_color_pieces(&self, turn_color: Color) -> u64 {
         match turn_color {
             Color::White => self.white_pieces,
             Color::Black => self.black_pieces,
@@ -510,16 +512,32 @@ impl Chessboard {
             || (self.state.turn_color == Color::Black && (self.state.can_black_king_castle || self.state.can_black_queen_castle))
     }
 
-    /// Checks if a given square is attacked by any other pieces of the opponant color.
+    /// Determines if a given square is under attack by any piece of the specified color.
     /// 
-    /// Used by [Chessboard::any_attacked_squared_by_side].
+    /// This method checks all piece types that could potentially attack the square:
+    /// - Knights: using precomputed move masks
+    /// - Rooks/Queens: using ray-based sliding move generation for straight lines
+    /// - Bishops/Queens: using ray-based sliding move generation for diagonals
+    /// - Pawns: using precomputed attack masks (direction depends on color)
+    /// - King: using precomputed move masks
+    /// 
+    /// The function first checks if pieces of the given type exist near the square using
+    /// precomputed rays/masks, then validates actual attack paths considering blocking pieces.
+    /// 
+    /// # Arguments
+    /// * `square` - Bitboard with a single bit set representing the square to check
+    /// * `attacking_side` - The color of pieces that might be attacking the square
+    /// 
+    /// # Returns
+    /// `true` if the square is attacked by any piece of `attacking_side`, `false` otherwise
     fn is_square_attacked_by_color(&self, square: u64, attacking_side: Color) -> bool {
         let square_index: usize = square.trailing_zeros() as usize;
+        // println!("attacking side {:?}", attacking_side);
         
-        // Check knight attacks
+        // Checks if there are any knight which attacks the square.
         let knights = self.get_piece(attacking_side, Piece::Knight);
         if (Knight::get_move_masks()[square_index] & knights) != 0 {
-            println!("checked by knight");
+            // println!("checked by knight");
             return true;
         }
 
@@ -528,7 +546,7 @@ impl Chessboard {
         self.get_piece(attacking_side, Piece::Rook);
         if ((SuperPiece::rook_rays()[square_index] & rooks_queens) != 0)
         && ((Rook::compute_possible_moves(square, self, attacking_side.swap()) & rooks_queens) != 0) {
-            println!("checked by rook queen");
+            // println!("checked by rook queen");
             return true;
         }
         
@@ -537,21 +555,21 @@ impl Chessboard {
         self.get_piece(attacking_side, Piece::Bishop);
         if ((SuperPiece::bishop_rays()[square_index] & bishops_queens) != 0)
         && ((Bishop::compute_possible_moves(square, self, attacking_side.swap()) & bishops_queens) != 0) {
-            println!("checked by bishop queen");
+            // println!("checked by bishop queen");
             return true;
         }
         
         // Check pawn attacks
         let pawns = self.get_piece(attacking_side, Piece::Pawn);
-        if (Pawn::get_attack_mask()[attacking_side as usize * 64 + square_index] & pawns) != 0 {
-            println!("checked by pawn");
+        if (Pawn::get_attack_mask()[(attacking_side as usize ^ 1) * 64 + square_index] & pawns) != 0 {
+            // println!("checked by pawn");
             return true;
         }
 
         // Check king attacks
         let king = self.get_piece(attacking_side, Piece::King);
         if (King::get_move_masks()[square_index] & king) != 0 {
-            println!("checked by king");
+            // println!("checked by king");
             return true;
         }
 
@@ -602,22 +620,6 @@ impl Chessboard {
             Color::Black => self.black_pieces ^= from ^ to,
         }
     }
-    
-    pub(crate) fn add_piece(&mut self, piece_index: usize, square: u64, side: Color, piece: Piece) {
-        self.pieces[piece_index] |= 1;
-        match side {
-            Color::White => self.white_pieces ^= square,
-            Color::Black => self.black_pieces ^= square,
-        }
-    }
-
-    pub(crate) fn remove_piece(&mut self, piece_index: usize, square: u64, side: Color, piece: Piece) {
-        self.pieces[piece_index] &= 0;
-        match side {
-            Color::White => self.white_pieces ^= square,
-            Color::Black => self.black_pieces ^= square,
-        }
-    }
 
     /// Use this method when required to put a piece without moving one or removing a piece, like during game initialization, captures or promotions.
     pub(crate) fn toggle_piece(&mut self, piece_index: usize, square: u64, side: Color, piece: Piece) {
@@ -625,13 +627,13 @@ impl Chessboard {
         match side {
             Color::White => self.white_pieces ^= square,
             Color::Black => self.black_pieces ^= square,
-        }
+        };
     }
 
     pub(crate) fn save_state(&mut self) {
         // TODO: Check if it is possible with unmake()
-        self.state_stack[self.ply_index] = self.state;
         self.ply_index += 1;
+        self.state_stack[self.ply_index] = self.state;
     }
 
     pub(crate) fn is_occupied(&self, r#move: &Move) -> bool {
@@ -870,9 +872,8 @@ impl Chessboard {
                         self.toggle_piece(
                             get_piece_index(self.state.turn_color.swap(), piece),
                             mv.to,
-                            self.state.turn_color, 
+                            self.state.turn_color.swap(), 
                             piece);
-
                         self.slide_piece(
                             get_piece_index(self.state.turn_color, mv.piece_type),
                             mv.from,
@@ -1000,13 +1001,13 @@ impl Chessboard {
         }
 
         // TODO: implement Zobrist
-        self.state.turn_color = self.state.turn_color ^ Color::Black;
+        self.state.turn_color = self.state.turn_color.swap();
     }
     
     /// Unmake a move on the chessboard itself.
     pub fn unmake(&mut self, _move: &Move) {
-        self.ply_index -= 1;
         self.state = self.state_stack[self.ply_index];
+        self.ply_index -= 1;
 
         if _move.promotion_flag() {
             // println!("promotion");

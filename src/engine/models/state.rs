@@ -6,13 +6,13 @@
 use crate::engine::models::{board::{Color, 
     Square}, piece::Piece};
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 /// Fields that can't be altered during the move but can be altered between moves
 /// Which means that we restore a position from these fields
 /// These fields indicate that at a given state, this move with this state has been played
 /// For example, at white turn, halfmoveclock is 10, can white king castle, he decided to capture a piece, and didnt have en passant available 
 /// So we need to push to the stack the state before updating anything 
-pub(crate) struct State {
+pub struct State {
     pub(crate) turn_color: Color,
     pub(crate) full_move_number: u32,
     pub(crate) half_move_clock: u32,

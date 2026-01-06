@@ -173,6 +173,7 @@ mod tests {
         let fen = "8/1p3p1p/5PkP/5pPp/P4PpP/5pKp/5P1P/8 b - - 0 2";
         let mut chessboard = Chessboard::from_fen(fen).unwrap();
 
+        assert_eq!(perft(&mut chessboard, 1), 2);
         assert_eq!(perft(&mut chessboard, 2), 3);
     }
 }

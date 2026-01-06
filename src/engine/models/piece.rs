@@ -75,7 +75,7 @@ impl From<Piece> for char {
 /// * `pawn_attack_masks` - An array of 128 bitboards representing the attack patterns
 ///   for pawns from different positions. Each bitboard represents the squares that
 ///   a pawn can attack from a given position.
-pub(crate) struct Pawn {
+pub struct Pawn {
     /// Precomputed attack mask for every pawn position for both side, white then black.
     pawn_attack_masks: [u64; 128],
     promotion_map: HashMap<char, u8>
@@ -83,7 +83,7 @@ pub(crate) struct Pawn {
 
 impl Pawn {
     /// Returns the precomputed attack masks for pawns.
-    pub(crate) fn get_attack_mask() -> [u64; 128] {
+    pub fn get_attack_mask() -> [u64; 128] {
         pawn().pawn_attack_masks
     }
 
