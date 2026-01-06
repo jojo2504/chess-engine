@@ -97,7 +97,7 @@ impl Engine<NotConnected> {
             let moves = generate_moves(&self.chessboard);
             let moves: Vec<&Move> = moves.iter().filter_map(|mv| {
                 self.chessboard.make(mv);
-                if !self.chessboard.is_in_check(self.chessboard.state_stack[self.chessboard.ply_index].turn_color) {
+                if !self.chessboard.is_in_check() {
                     self.chessboard.unmake(mv);
                     return Some(mv);
                 }

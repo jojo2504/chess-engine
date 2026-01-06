@@ -26,14 +26,13 @@ pub fn perft(chessboard: &mut Chessboard, depth: u8) -> u64 {
     let mut nodes = 0;
     let all_pseudo_legal_moves = generate_moves(chessboard);
     let n_moves = all_pseudo_legal_moves.len();
-    let mut i = 1;
     for _move in all_pseudo_legal_moves.iter().take(n_moves) {
         // println!("Moves = {:?} ({})", all_pseudo_legal_moves, n_moves);
         // pause(format!("Before make {} (# {}/{}) as {:?}", _move, i, n_moves, chessboard.get_current_turn()).as_str());
         chessboard.make(_move);
         // println!("{}", chessboard);
 
-        if !chessboard.is_in_check(chessboard.state_stack[chessboard.ply_index].turn_color) {
+        if !chessboard.is_in_check() {
             nodes += perft(chessboard, depth - 1);
         }
         // println!("Moves = {:?} ({})", all_pseudo_legal_moves, n_moves);
@@ -41,7 +40,7 @@ pub fn perft(chessboard: &mut Chessboard, depth: u8) -> u64 {
         chessboard.unmake(_move);
         // println!("{}", chessboard);
 
-        i += 1;
+        // i += 1;
     }
 
     nodes
@@ -71,7 +70,7 @@ pub fn perft_to_file(chessboard: &mut Chessboard, depth: u8, file_path: &str) ->
             // println!("black pieces");
             // display_bitstring_as_chessboard(&as_064b(chessboard.black_pieces));
             writeln!(writer, "{}", as_064b(chessboard.get_piece(Color::White, Piece::Queen)));
-            if !chessboard.is_in_check(chessboard.state_stack[chessboard.ply_index].turn_color) {
+            if !chessboard.is_in_check() {
                 let move_nodes = perft_inner(chessboard, depth - 1, writer);
                 nodes += move_nodes;
                 
@@ -131,9 +130,7 @@ pub fn draw_perft_tree(
 
         chessboard.make(mv);
 
-        let is_in_check =
-            chessboard.is_in_check(chessboard.state_stack[chessboard.ply_index].turn_color);
-
+        let is_in_check = chessboard.is_in_check();
         if !is_in_check {
             let subtree_nodes = draw_perft_tree(chessboard, depth - 1, &new_indent);
             total_nodes += subtree_nodes;
@@ -162,7 +159,7 @@ pub fn perft_tree(chessboard: &mut Chessboard, depth: u8) -> u64 {
     for mv in all_pseudo_legal_moves.iter().take(n_moves) {
         chessboard.make(mv);
 
-        let in_check = chessboard.is_in_check(chessboard.state_stack[chessboard.ply_index].turn_color);
+        let in_check = chessboard.is_in_check();
         if !in_check {
             let move_nodes = perft(chessboard, depth - 1);
             nodes += move_nodes;

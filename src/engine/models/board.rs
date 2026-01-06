@@ -1057,12 +1057,9 @@ impl Chessboard {
     }
     
     /// Checks if the current tested side king is in check or not
-    pub(crate) fn is_in_check(&mut self, side: Color) -> bool {
+    pub(crate) fn is_in_check(&mut self) -> bool {
+        let side = self.state_stack[self.ply_index].turn_color;
         let king = self.get_piece(side, Piece::King);
-
-        if king == 0 {
-            panic!("why is king 0 {}", king);
-        }
         self.is_square_attacked_by_color(king, side.swap())
     }
 }

@@ -26,8 +26,9 @@ fn main() -> anyhow::Result<()> {
         perft_tree(&mut chessboard, depth);
     }
     else {
-        let mut engine = Engine::new();
-        engine.start_self_game();
+        println!("{}", perft(&mut chessboard, 6));
+        // let mut engine = Engine::new();
+        // engine.start_self_game();
     }
     Ok(())
 }
