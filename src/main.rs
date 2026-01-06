@@ -3,7 +3,7 @@
 // #![warn(clippy::missing_docs_in_private_items)]
 // #![deny(clippy::unwrap_used, clippy::expect_used)]
 
-use lib::{draw_perft_tree, engine::models::board::Chessboard, perft, perft_to_file, perft_tree, search_test};
+use lib::{draw_perft_tree, engine::models::{board::Chessboard, r#move::Move}, perft, perft_to_file, perft_tree, search_test};
 use stats_alloc::{Region, StatsAlloc, INSTRUMENTED_SYSTEM};
 use std::{alloc::System, env};
 
@@ -11,8 +11,8 @@ use std::{alloc::System, env};
 static GLOBAL: &StatsAlloc<System> = &INSTRUMENTED_SYSTEM;
 
 fn main() -> anyhow::Result<()> {
-    // let mut chessboard= Chessboard::from_fen("k7/8/1Q6/8/8/1Pp3q1/2P5/7K w - - 0 1").unwrap();
-    let mut chessboard = Chessboard::new();
+    let mut chessboard= Chessboard::from_fen("rnbq1k1r/pp1Pbppp/2p5/8/2B5/P7/1PP1NnPP/RNBQK2R b KQ - 1 8").unwrap();
+    // let mut chessboard = Chessboard::new();
 
     // let before = GLOBAL.stats();
     // draw_perft_tree(&mut chessboard, 2, "");
@@ -32,9 +32,11 @@ fn main() -> anyhow::Result<()> {
         perft_tree(&mut chessboard, depth);
     }
     else {
-        println!("normal perft: ");
-        println!("{}", perft(&mut chessboard, 2));
-        // perft_to_file(&mut chessboard, 3, "./a.txt");
+        // let uci = "b2b3";
+        // println!("{}", Move::decode_uci(uci, &chessboard).unwrap());
+        // println!("normal perft: ");
+        // println!("{}", perft(&mut chessboard, 1));
+        perft_to_file(&mut chessboard, 1, "./a.txt");
         // draw_perft_tree(&mut chessboard, 3, " ");
     }
     Ok(())

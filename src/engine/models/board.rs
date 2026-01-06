@@ -519,7 +519,7 @@ impl Chessboard {
         // Check knight attacks
         let knights = self.get_piece(attacking_side, Piece::Knight);
         if (Knight::get_move_masks()[square_index] & knights) != 0 {
-            // println!("checked by knight");
+            println!("checked by knight");
             return true;
         }
 
@@ -528,7 +528,7 @@ impl Chessboard {
         self.get_piece(attacking_side, Piece::Rook);
         if ((SuperPiece::rook_rays()[square_index] & rooks_queens) != 0)
         && ((Rook::compute_possible_moves(square, self, attacking_side.swap()) & rooks_queens) != 0) {
-            // println!("checked by rook queen");
+            println!("checked by rook queen");
             return true;
         }
         
@@ -537,25 +537,21 @@ impl Chessboard {
         self.get_piece(attacking_side, Piece::Bishop);
         if ((SuperPiece::bishop_rays()[square_index] & bishops_queens) != 0)
         && ((Bishop::compute_possible_moves(square, self, attacking_side.swap()) & bishops_queens) != 0) {
-            // println!("checked by bishop queen");
+            println!("checked by bishop queen");
             return true;
         }
         
         // Check pawn attacks
         let pawns = self.get_piece(attacking_side, Piece::Pawn);
-        let opponent_color = match attacking_side {
-            Color::White => Color::Black,
-            Color::Black => Color::White,
-        };
-        if (Pawn::get_attack_mask()[(opponent_color as usize + 1) * square_index] & pawns) != 0 {
-            // println!("checked by pawn");
+        if (Pawn::get_attack_mask()[attacking_side as usize * 64 + square_index] & pawns) != 0 {
+            println!("checked by pawn");
             return true;
         }
 
         // Check king attacks
         let king = self.get_piece(attacking_side, Piece::King);
         if (King::get_move_masks()[square_index] & king) != 0 {
-            // println!("checked by king");
+            println!("checked by king");
             return true;
         }
 
@@ -1013,7 +1009,7 @@ impl Chessboard {
         self.state = self.state_stack[self.ply_index];
 
         if _move.promotion_flag() {
-            println!("promotion");
+            // println!("promotion");
             if _move.capture_flag() {
                 if let Some(captured_piece) = self.state.captured_piece {
                     self.toggle_piece(get_piece_index(self.state.turn_color.swap(), captured_piece), _move.to, self.state.turn_color, captured_piece);
@@ -1031,7 +1027,7 @@ impl Chessboard {
         }
 
         else if _move.castle_flag() {
-            println!("castle");
+            // println!("castle");
             self.slide_piece(get_piece_index(self.state.turn_color, Piece::King), _move.to, _move.from, self.state.turn_color, Piece::King);
             
             match _move.move_kind() {
