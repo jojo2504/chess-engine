@@ -82,7 +82,7 @@ impl Engine<NotConnected> {
             if let Some(best_move) = best_move {
                 self.chessboard.make(&best_move);
                 println!("chessboard:\n{}", self.chessboard);
-                pause(&format!("-------------- {} {} {}", turn_counter, best_move, Evaluation::evaluate(&self.chessboard)));
+                pause(&format!("-------------- {} {} {}", turn_counter, best_move, Evaluation::evaluate(&mut self.chessboard)));
             }
 
             turn_counter += 1;
