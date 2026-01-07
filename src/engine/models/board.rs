@@ -615,6 +615,7 @@ impl Chessboard {
     #[inline(always)]
     pub fn slide_piece(&mut self, piece_index: usize, from: u64, to: u64, side: Color, _piece: Piece) {
         let xor = from ^ to;
+        self.pieces[piece_index] ^= xor;
         unsafe {
             let color_pieces = (&mut self.white_pieces as *mut u64).offset(side as isize);
             *color_pieces ^= xor;

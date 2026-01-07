@@ -3,7 +3,7 @@
 // #![warn(clippy::missing_docs_in_private_items)]
 // #![deny(clippy::unwrap_used, clippy::expect_used)]
 
-use lib::{as_064b, draw_perft_tree, engine::{Engine, models::{board::{Chessboard, Color}, r#move::Move, piece::Pawn}}, perft, perft_to_file, perft_tree, search_test, utils::string_format::display_bitstring_as_chessboard};
+use lib::{as_064b, draw_perft_tree, engine::{self, Engine, engine::EngineBuilder, models::{board::{Chessboard, Color}, r#move::Move, piece::Pawn}}, perft, perft_to_file, perft_tree, search_test, utils::string_format::display_bitstring_as_chessboard};
 use stats_alloc::{Region, StatsAlloc, INSTRUMENTED_SYSTEM};
 use std::{alloc::System, env};
 
@@ -26,9 +26,14 @@ fn main() -> anyhow::Result<()> {
         perft_tree(&mut chessboard, depth);
     }
     else {
-        println!("{}", perft(&mut chessboard, 6));
-        // let mut engine = Engine::new();
-        // engine.start_self_game();
+        // println!("{}", perft(&mut chessboard, 6));
+        let engine_builder = EngineBuilder::new().default_fen().search(5).build();
+        if let Ok(mut engine) = engine_builder {
+            engine.start_self_game();
+        }
+        else {
+            eprintln!("{}", engine_builder.err().unwrap())
+        }
     }
     Ok(())
 }

@@ -274,3 +274,24 @@ pub fn generate_moves(chessboard: &Chessboard) -> Vec<Move> {
     }
     all_pseudo_legal_moves
 }
+
+pub fn generate_legal_moves(chessboard: &mut Chessboard) -> Vec<Move> {
+    let mut all_pseudo_legal_moves = Vec::with_capacity(256);
+
+    for i in 0..6 {
+        get_all_possible_piece_moves(
+            chessboard,
+            chessboard.state.turn_color,
+            Piece::try_from(i).unwrap(),
+            &mut all_pseudo_legal_moves,
+        );
+    }
+
+    // test and filter
+    all_pseudo_legal_moves.into_iter().filter(|mv| {
+        chessboard.make(&mv);
+        let is_legal = !chessboard.is_in_check();
+        chessboard.unmake(mv);
+        is_legal
+    }).collect()
+}

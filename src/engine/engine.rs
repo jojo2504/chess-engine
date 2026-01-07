@@ -43,12 +43,6 @@ pub struct Engine<State = NotConnected> {
     state: PhantomData<State>
 }
 
-impl Default for Engine<NotConnected> {
-    fn default() -> Engine<NotConnected> {
-        Self::new()
-    }
-}
-
 impl Engine<NotConnected> {
     /// Validate the uci protocol and ready to listen to next uci commands after `uciok`.
     pub fn validate_uci_connection(self) -> anyhow::Result<Engine<Connected>> {
@@ -154,22 +148,41 @@ impl Engine<Connected> {
     }
 }
 
-impl Engine {
-    /// Initializing the engine's chessboard with the classic starting chess position.
-    pub fn new() -> Engine {
-        Engine {
-            chessboard: Chessboard::new(),
-            search: Search::new(3),
-            state: PhantomData::<NotConnected>
-        }
+pub struct EngineBuilder {
+    chessboard: Option<Chessboard>,
+    search: Option<Search>,
+}
+
+impl EngineBuilder {
+    pub fn new() -> Self {
+        Self { chessboard: None, search: None }
+    }
+    
+    pub fn default_fen(mut self) -> Self {
+        self.chessboard = Some(Chessboard::new());
+        self
     }
 
-    /// Initializing the engine's chessboard with a custom position, parsed using fen.
-    pub fn from_fen(fen: &str) -> Result<Engine, &str> {
-        Ok(Engine {
-            chessboard: Chessboard::from_fen(fen)?,
-            search: Search::new(3),
-            state: PhantomData::<NotConnected>
-        })
+    pub fn from_fen(mut self, fen: &str) -> Result<Self, &str> {
+        self.chessboard = Some(Chessboard::from_fen(fen)?);
+        Ok(self)
+    }
+
+    pub fn search(mut self, depth: i32) -> Self {
+        self.search = Some(Search::new(depth));
+        self
+    }
+
+    pub fn build(self, ) -> Result<Engine<NotConnected>, String> {
+        if let Some(chessboard) = self.chessboard && let Some(search) = self.search {
+            return Ok(Engine { 
+                chessboard, 
+                search,
+                state: PhantomData::<NotConnected>
+            })
+        }
+        else {
+            Err("Missing engine fields".to_owned())
+        }
     }
 }

@@ -1,6 +1,6 @@
 use std::{cmp::max, collections::HashMap, sync::{Arc, Mutex}};
 
-use crate::engine::{models::{board::{Chessboard, Color}, r#move::Move}, movegen::generate_moves, search::evaluation::Evaluation};
+use crate::engine::{models::{board::{Chessboard, Color}, r#move::Move}, movegen::{generate_legal_moves, generate_moves}, search::evaluation::Evaluation};
 use rayon::prelude::*;
 
 #[derive(Default, Clone)]
@@ -56,7 +56,7 @@ impl Search {
             return color * Evaluation::evaluate(chessboard);
         }
 
-        let child_nodes = generate_moves(chessboard);
+        let child_nodes = generate_legal_moves(chessboard);
         
         let mut best_score = i32::MIN;
         for child in &child_nodes {
@@ -89,8 +89,7 @@ impl Search {
     }
 
     pub(crate) fn think(&mut self, chessboard: &mut Chessboard) -> Option<Move> {
-        let all_moves = generate_moves(chessboard);
-        println!("generated all moves");
+        let all_moves = generate_legal_moves(chessboard);
         
         let best_move= Arc::new(Mutex::new(None));
         let best_score = Arc::new(Mutex::new(i32::MIN));

@@ -4,7 +4,6 @@
 #![deny(clippy::unwrap_used, clippy::expect_used)]
 
 use core::fmt;
-use std::fmt::Debug;
 
 use crate::engine::models::{board::{Chessboard, Square, get_piece_index_raw}, piece::{Pawn, Piece}};
 
@@ -73,8 +72,7 @@ impl TryFrom<u8> for MoveKind {
 }
 
 /// All data needed to encode one move.
-//#[derive(PartialEq, Eq, Clone, Debug)]
-#[derive(PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Move {
     /// The information required to uniquely describe a move is the initial square, also called from-, origin- or departure square, and the target square, 
     /// also called to- or destination square, and in case of promotions the promoted piece code. While this from-to information is also sufficient for castling
@@ -283,11 +281,5 @@ impl fmt::Display for Move {
         else {
             Err(std::fmt::Error)
         }
-    }
-}
-
-impl Debug for Move {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", format!("{}", self))
     }
 }

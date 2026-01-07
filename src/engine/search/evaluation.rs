@@ -37,7 +37,7 @@ fn evaluation() -> &'static Evaluation {
         evaluation.pieces_score.insert(2, 3);
         evaluation.pieces_score.insert(3, 5);
         evaluation.pieces_score.insert(4, 9);
-        evaluation.pieces_score.insert(5, 100);
+        evaluation.pieces_score.insert(5, 1000);
 
         evaluation
     })
