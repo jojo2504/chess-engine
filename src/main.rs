@@ -5,7 +5,7 @@
 
 use lib::{as_064b, draw_perft_tree, engine::{self, Engine, engine::EngineBuilder, models::{board::{Chessboard, Color}, r#move::Move, piece::Pawn}}, perft, perft_to_file, perft_tree, utils::string_format::display_bitstring_as_chessboard};
 use stats_alloc::{Region, StatsAlloc, INSTRUMENTED_SYSTEM};
-use std::{alloc::System, env};
+use std::{alloc::System, env, io::{self, BufRead}};
 
 #[global_allocator]
 static GLOBAL: &StatsAlloc<System> = &INSTRUMENTED_SYSTEM;
@@ -27,8 +27,12 @@ fn main() -> anyhow::Result<()> {
     }
     else {
         let engine_builder = EngineBuilder::new().default_fen().search(5).build();
-        if let Ok(mut engine) = engine_builder {
-            engine.play_against_player();
+        if let Ok(engine) = engine_builder {
+            let stdin = io::stdin();
+            let mut input = stdin.lock().lines();
+            if let Ok(mut engine) = engine.validate_uci_connection(&mut input) {
+                engine.start_uci_game(&mut input)?;
+            }
         }
         else {
             eprintln!("{}", engine_builder.err().unwrap())

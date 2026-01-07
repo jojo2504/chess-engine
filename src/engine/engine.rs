@@ -3,10 +3,11 @@
 #![warn(clippy::missing_docs_in_private_items)]
 #![deny(clippy::unwrap_used, clippy::expect_used)]
 
-use std::marker::PhantomData;
+use std::io::{self, Lines, StdinLock, Write};
+pub type UciInput<'a> = Lines<StdinLock<'a>>;
 
+use std::marker::PhantomData;
 use anyhow::anyhow;
-use console::Term;
 use rand::seq::IndexedRandom;
 use rand::rng;
 
@@ -46,9 +47,11 @@ pub struct Engine<State = NotConnected> {
 
 impl Engine<NotConnected> {
     /// Validate the uci protocol and ready to listen to next uci commands after `uciok`.
-    pub fn validate_uci_connection(self) -> anyhow::Result<Engine<Connected>> {
-        let protocol = Term::stdout().read_line()?;
-    
+    pub fn validate_uci_connection<'a>(self, input: &mut UciInput<'a>) -> anyhow::Result<Engine<Connected>> {
+        let protocol = input
+            .next()
+            .ok_or(anyhow!("stdin closed"))??;
+        
         if protocol.trim() != "uci" {
             return Err(anyhow!("Invalid UCI protocol"));
         }
@@ -61,6 +64,7 @@ impl Engine<NotConnected> {
         println!("option name SyzygyPath type string default './syzygy/'");
         println!("option name UCI_ShowWDL type check default true");
         println!("uciok");  
+        io::stdout().flush()?; // IMPORTANT
 
         Ok(Engine { 
             chessboard: Chessboard::new(),
@@ -157,37 +161,64 @@ impl Engine<NotConnected> {
 
 impl Engine<Connected> {
     /// This method starts an UCI game, the engine or AI will return after each of its turn its corresponding "best move" as UCI encoding.
-    pub fn start_uci_game(&mut self) -> anyhow::Result<()> {
-        loop {
-            let input = Term::stdout().read_line()?;
-            let mut parts = input.split(' ');
-            let command = parts.next().ok_or(anyhow!("no command found"))?;
-            let remaining: Vec<&str> = parts.collect();
+    pub fn start_uci_game<'a>(&mut self, input: &mut UciInput<'a>) -> anyhow::Result<()> {
+        let stdout = io::stdout();
+        let mut stdout = stdout.lock();
 
-            match command {
-                "quit" => {
-                    break;
-                },
+        for line in input {
+            let line = line?;
+            let line = line.trim();
+
+            match line {
                 "isready" => {
-                    println!("readyok");
-                },
-                "position" => {
-                    todo!("position update");
-                },
-                "go" => {
-                    let best_move = self.search.think(&mut self.chessboard);
-                    if let Some(best_move) = best_move {
-                        println!("bestmove {}", best_move);
+                    writeln!(stdout, "readyok")?;
+                }
+                "quit" => break,
+                cmd if cmd.starts_with("position") => {
+                    let mut parts = cmd.split_whitespace();
+
+                    match parts.next() {
+                        Some("position") => {}
+                        _ => return Ok(()),
                     }
-                },
+
+                    match parts.next() {
+                        Some("startpos") => {
+                            self.chessboard = Chessboard::new();
+                        }
+                        Some("fen") => {
+                            let fen: String = parts.by_ref().take(6).collect::<Vec<_>>().join(" ");
+                            self.chessboard = Chessboard::from_fen(&fen).unwrap();
+                        }
+                        _ => {}
+                    }
+
+                    if let Some("moves") = parts.next() {
+                        for mv in parts {
+                            if let Ok(mv) = Move::decode_uci(mv, &self.chessboard) {
+                                self.chessboard.make(&mv);
+                            } else {
+                                // INVALID MOVE → IGNORE (never panic)
+                            }
+                        }
+                    }
+                }
+
+                cmd if cmd.starts_with("go") => {
+                    if let Some(best_move) = self.search.think(&mut self.chessboard) {
+                        writeln!(stdout, "bestmove {}", best_move)?;
+                    }
+                }
                 _ => {
-                    return Err(anyhow!("xd"));
+                    // IGNORE unknown commands (REQUIRED by UCI)
                 }
             }
+
+            stdout.flush()?;
         }
 
         Ok(())
-    }
+    }    
 }
 
 pub struct EngineBuilder {
