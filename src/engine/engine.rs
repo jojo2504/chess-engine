@@ -11,6 +11,7 @@ use rand::seq::IndexedRandom;
 use rand::rng;
 
 use crate::engine::models::r#move::Move;
+use crate::engine::movegen::generate_legal_moves;
 use crate::engine::search::evaluation::Evaluation;
 use crate::engine::{models::board::Chessboard, movegen::generate_moves, search::Search};
 use crate::pause;
@@ -111,6 +112,47 @@ impl Engine<NotConnected> {
             turn_counter += 1;
         }
     } 
+
+    pub fn play_against_player(&mut self) {
+        let mut turn_counter = 0;
+        loop {
+            //player always plays white, need to play uci
+            println!("enter your uci encoded move:");
+            let uci = console::Term::stdout().read_line().unwrap();
+            let decoded_move = &Move::decode_uci(&uci, &self.chessboard).unwrap();
+            let possibles_moves = generate_legal_moves(&mut self.chessboard);
+
+            if possibles_moves.iter().any(|mv| mv.to_string() == decoded_move.to_string()) {
+                self.chessboard.make(decoded_move);
+            }
+            else {
+                continue;
+            }
+
+
+            let moves = generate_legal_moves(&mut self.chessboard);
+            let moves: Vec<&Move> = moves.iter().filter_map(|mv| {
+                self.chessboard.make(mv);
+                if !self.chessboard.is_in_check() {
+                    self.chessboard.unmake(mv);
+                    return Some(mv);
+                }
+                self.chessboard.unmake(mv);
+                None
+            }).collect();
+    
+            let mut rng = rng();
+            let random_move = moves.choose(&mut rng);
+    
+            if let Some(random_move) = random_move {
+                self.chessboard.make(&random_move);
+                println!("chessboard:\n{}", self.chessboard);
+                pause(&format!("-------------- {}", turn_counter));
+            }
+
+            turn_counter += 1;
+        }
+    }
 }
 
 impl Engine<Connected> {
