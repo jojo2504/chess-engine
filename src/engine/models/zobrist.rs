@@ -38,16 +38,16 @@ impl Zobrist {
     pub fn compute_castling_rights_hash(state: State) -> u64 {
         let mut castling_rights_index = 0;
         
-        if state.can_white_king_castle {
+        if state.can_white_king_castle() {
             castling_rights_index |= 1;   // 0001
         }
-        if state.can_white_queen_castle {
+        if state.can_white_queen_castle() {
             castling_rights_index |= 2;  // 0010
         }
-        if state.can_black_king_castle {
+        if state.can_black_king_castle() {
             castling_rights_index |= 4;   // 0100
         }
-        if state.can_black_queen_castle {
+        if state.can_black_queen_castle() {
             castling_rights_index |= 8;  // 1000
         }
         

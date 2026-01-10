@@ -7,8 +7,7 @@ use std::{collections::HashMap};
 use std::fmt;
 use std::str::FromStr;
 use serde::Deserialize;
-use crate::as_064b;
-use crate::utils::string_format::display_bitstring_as_chessboard;
+use crate::engine::models::undo::Undo;
 use crate::{engine::models::{r#move::{Move, MoveKind}, piece::{Bishop, King, Knight, Pawn, Piece, Rook, SuperPiece}, state::State}};
 
 /// Represents a board rank, or horizontal line. `A1..H1`
@@ -322,8 +321,8 @@ pub struct Chessboard {
 
     /// Current state of the chessboard.
     pub state: State,
-    /// Used to keep track of all previous and current states of the chessboard. 
-    pub(crate) state_stack: Box<[State; 8192-1]>,
+    /// Used to keep track of all undo needed to restore the state in the unmake function.
+    pub(crate) undo_stack: Box<[Undo; 8191]>,
     /// Used to index the state_stack, representing the current ply, equivalent to a half-move.
     pub(crate) ply_index: usize
 }
@@ -402,7 +401,7 @@ impl Chessboard {
         }
         match full_moves {
             Ok(value) => {
-                chessboard.state.full_move_number = value;
+                // chessboard.state.full_move_number = value;
             },
             Err(err) => {
                 return Err(err);
@@ -412,16 +411,16 @@ impl Chessboard {
         for x in castling_ability.chars() {
             match x {
                 'K' => {
-                    chessboard.state.can_white_king_castle = true;
+                    chessboard.state.castling_right |= 1;
                 },
                 'Q' => {
-                    chessboard.state.can_white_queen_castle = true;
+                    chessboard.state.castling_right |= 2;
                 },
                 'k' => {
-                    chessboard.state.can_black_king_castle = true;
+                    chessboard.state.castling_right |= 4;
                 },
                 'q' => {
-                    chessboard.state.can_black_queen_castle = true;
+                    chessboard.state.castling_right |= 8;
                 },
                 _ => {}
             }
@@ -508,8 +507,8 @@ impl Chessboard {
     // ? Not sure if we keep it
     /// Quick checks before expensive castling computation
     pub(crate) fn should_check_castling(&self) -> bool {
-        (self.state.turn_color == Color::White && (self.state.can_white_king_castle || self.state.can_white_queen_castle))
-            || (self.state.turn_color == Color::Black && (self.state.can_black_king_castle || self.state.can_black_queen_castle))
+        (self.state.turn_color == Color::White && (self.state.can_white_king_castle() || self.state.can_white_queen_castle()))
+            || (self.state.turn_color == Color::Black && (self.state.can_black_king_castle() || self.state.can_black_queen_castle()))
     }
 
     /// Determines if a given square is under attack by any piece of the specified color.
@@ -632,26 +631,23 @@ impl Chessboard {
         }
     }
 
-    #[inline(always)]
-    pub(crate) fn save_state(&mut self) {
-        // TODO: Check if it is possible with unmake()
-        unsafe {
-            self.ply_index = self.ply_index.unchecked_add(1);
-            *self.state_stack.get_unchecked_mut(self.ply_index) = self.state;
-        }
-    }
-
     /// Make a move on the chessboard itself.
     pub fn make(&mut self, r#move: &Move) {
         let mv = r#move;
         let kind = MoveKind::from_u8_unchecked(mv.move_kind_code());
 
+        // Init a new Undo instance and save current state
+        let mut undo = Undo {
+            captured_piece: None,
+            castling_right: self.state.castling_right,
+            half_move_clock: self.state.half_move_clock,
+            en_passant_square: self.state.en_passant_square,
+        };
+
         // =====================
         // CASTLING
         // =====================
         if mv.castle_flag() {
-            self.save_state();
-
             match self.state.turn_color {
                 Color::White => {
                     self.slide_piece(
@@ -661,8 +657,8 @@ impl Chessboard {
                         Color::White,
                         Piece::King,
                     );
-                    self.state.can_white_king_castle = false;
-                    self.state.can_white_queen_castle = false;
+                    // Clear white's castling rights (both king and queen side)
+                    self.state.castling_right &= 12;
                 }
                 Color::Black => {
                     self.slide_piece(
@@ -672,8 +668,8 @@ impl Chessboard {
                         Color::Black,
                         Piece::King,
                     );
-                    self.state.can_black_king_castle = false;
-                    self.state.can_black_queen_castle = false;
+                    // Clear black's castling rights (both king and queen side)
+                    self.state.castling_right &= 3;
                 }
             }
 
@@ -733,46 +729,35 @@ impl Chessboard {
         // EN PASSANT
         // =====================
         else if kind == MoveKind::EpCapture {
-            self.save_state();
-
             // remove captured pawn
-            if self.state.turn_color == Color::White {
-                self.toggle_piece(
-                    get_piece_index(Color::Black, Piece::Pawn),
-                    mv.to >> 8,
-                    Color::Black,
-                    Piece::Pawn,
-                );
-            } else {
-                self.toggle_piece(
-                    get_piece_index(Color::White, Piece::Pawn),
-                    mv.to << 8,
-                    Color::White,
-                    Piece::Pawn,
-                );
-            }
+            let opponent_color = self.state.turn_color.swap();
+            let is_white = (self.state.turn_color == Color::White) as u64;
+            let captured_square = (mv.to >> 8) * is_white + (mv.to << 8) * (1 - is_white);
 
-            // move capturing pawn
             self.toggle_piece(
-                get_piece_index(self.state.turn_color, Piece::Pawn),
-                mv.from,
-                self.state.turn_color,
+                get_piece_index(opponent_color, Piece::Pawn),
+                captured_square,
+                opponent_color,
                 Piece::Pawn,
             );
-            self.toggle_piece(
+
+            // move capturing pawn
+            self.slide_piece(
                 get_piece_index(self.state.turn_color, Piece::Pawn),
+                mv.from,
                 mv.to,
                 self.state.turn_color,
                 Piece::Pawn,
             );
-
-            self.state.en_passant_square = None;
         }
 
         // =====================
         // NORMAL MOVES
         // =====================
         else {
+            // Clear en passant square by default (will be set again if DoublePawnPush)
+            self.state.en_passant_square = None;
+            
             // ---- QUIET MOVE ----
             if !mv.captured_piece.is_some() {
                 if mv.piece_type == Piece::Pawn {
@@ -852,13 +837,12 @@ impl Chessboard {
                         mv.piece_type,
                     );
                 }
-
-                self.state.captured_piece = None;
             }
 
             // ---- CAPTURE ----
             else {
                 let captured_piece = mv.captured_piece.unwrap();
+                undo.captured_piece = Some(captured_piece);
 
                 // Remove captured piece
                 self.toggle_piece(
@@ -937,74 +921,82 @@ impl Chessboard {
                         );
                     }
                 }
-
-                self.state.captured_piece = mv.captured_piece;                 
             }
 
-            self.save_state();
-
             self.state.half_move_clock =
-                if self.state.captured_piece.is_some() || mv.piece_type == Piece::Pawn {
+                if undo.captured_piece.is_some() || mv.piece_type == Piece::Pawn {
                     0
                 } else {
                     self.state.half_move_clock + 1
                 };
 
-            let white_check = self.get_piece(Color::White, Piece::Rook) & Rook::WHITE_CASTLING_MASK;
-            let black_check = self.get_piece(Color::Black, Piece::Rook) & Rook::BLACK_CASTLING_MASK;
-
-            self.state.can_white_king_castle &= (white_check & (1u64 << Square::H1 as u64)) != 0;
-            self.state.can_white_queen_castle &= (white_check & (1u64 << Square::A1 as u64)) != 0;
-            self.state.can_black_king_castle &= (black_check & (1u64 << Square::H8 as u64)) != 0;
-            self.state.can_black_queen_castle &= (black_check & (1u64 << Square::A8 as u64)) != 0;
-
-            self.state.en_passant_square = None;
-
+            // Update castling rights based on piece movements
             match mv.piece_type {
                 Piece::King => {
-                    // moving the king cancels both castling rights
-                    // TODO: remove .unwrap()
-                    let square_from = Square::try_from(mv.from.trailing_zeros() as u64).ok().unwrap();
-                    match square_from {
-                        Square::E1 => {
-                            self.state.can_white_king_castle = false;
-                            self.state.can_white_queen_castle = false;
-                        }
-                        Square::E8 => {
-                            self.state.can_black_king_castle = false;
-                            self.state.can_black_queen_castle = false;
-                        }
+                    // Moving the king removes all castling rights for that color
+                    match self.state.turn_color {
+                        Color::White => self.state.castling_right &= 12, // Clear bits 0 and 1 (white's rights)
+                        Color::Black => self.state.castling_right &= 3,  // Clear bits 2 and 3 (black's rights)
+                    }
+                }
+                Piece::Rook => {
+                    // Moving a rook removes castling rights for that side
+                    let from_square = mv.from.trailing_zeros();
+                    match from_square {
+                        x if x == Square::H1 as u32 => self.state.castling_right &= !1,  // Clear white king-side
+                        x if x == Square::A1 as u32 => self.state.castling_right &= !2,  // Clear white queen-side
+                        x if x == Square::H8 as u32 => self.state.castling_right &= !4,  // Clear black king-side
+                        x if x == Square::A8 as u32 => self.state.castling_right &= !8,  // Clear black queen-side
                         _ => {}
                     }
                 }
-
                 Piece::Pawn => {
-                    // double pawn push sets en passant square
+                    // Double pawn push sets en passant square
                     if kind == MoveKind::DoublePawnPush {
                         self.state.en_passant_square = Some(match self.state.turn_color {
-                            Color::White => unsafe { std::mem::transmute::<u8, Square>((mv.to >> 8).trailing_zeros() as u8) },
-                            Color::Black => unsafe { std::mem::transmute::<u8, Square>((mv.to << 8).trailing_zeros() as u8) },
+                            Color::White => unsafe { std::mem::transmute::<u8, Square>((mv.from.trailing_zeros() + 8) as u8) },
+                            Color::Black => unsafe { std::mem::transmute::<u8, Square>((mv.from.trailing_zeros() - 8) as u8) },
                         });
                     }
                 }
-
                 _ => {}
+            }
+            
+            // Also clear castling rights if a rook is captured on its starting square
+            if let Some(captured_piece) = undo.captured_piece {
+                if captured_piece == Piece::Rook {
+                    let to_square = mv.to.trailing_zeros();
+                    match to_square {
+                        x if x == Square::H1 as u32 => self.state.castling_right &= !1,  // Clear white king-side
+                        x if x == Square::A1 as u32 => self.state.castling_right &= !2,  // Clear white queen-side
+                        x if x == Square::H8 as u32 => self.state.castling_right &= !4,  // Clear black king-side
+                        x if x == Square::A8 as u32 => self.state.castling_right &= !8,  // Clear black queen-side
+                        _ => {}
+                    }
+                }
             }
         }
 
         // TODO: implement Zobrist
         self.state.turn_color = self.state.turn_color.swap();
+        self.undo_stack[self.ply_index] = undo;
+        self.ply_index += 1;
     }
     
     /// Unmake a move on the chessboard itself.
     pub fn unmake(&mut self, _move: &Move) {
-        self.state = self.state_stack[self.ply_index];
         self.ply_index -= 1;
+        let undo = self.undo_stack[self.ply_index];
+        self.state.turn_color = self.state.turn_color.swap();
+        
+        // Restore castling rights, half move clock, and en passant from undo
+        self.state.castling_right = undo.castling_right;
+        self.state.half_move_clock = undo.half_move_clock;
 
         if _move.promotion_flag() {
             // println!("promotion");
             if _move.capture_flag() {
-                if let Some(captured_piece) = self.state.captured_piece {
+                if let Some(captured_piece) = undo.captured_piece {
                     self.toggle_piece(get_piece_index(self.state.turn_color.swap(), captured_piece), _move.to, self.state.turn_color.swap(), captured_piece);
                 }
             }
@@ -1015,10 +1007,10 @@ impl Chessboard {
                     break;
                 }
             }
-
+            
             self.toggle_piece(get_piece_index(self.state.turn_color, Piece::Pawn), _move.from, self.state.turn_color, Piece::Pawn);
         }
-
+        
         else if _move.castle_flag() {
             // println!("castle");
             self.slide_piece(get_piece_index(self.state.turn_color, Piece::King), _move.to, _move.from, self.state.turn_color, Piece::King);
@@ -1053,15 +1045,20 @@ impl Chessboard {
             // println!("normal");
             self.slide_piece(get_piece_index(self.state.turn_color, _move.piece_type), _move.to, _move.from, self.state.turn_color, _move.piece_type);
 
-            if let Some(captured_piece) = self.state.captured_piece {
+            if let Some(captured_piece) = undo.captured_piece {
                 self.toggle_piece(get_piece_index(self.state.turn_color.swap(), captured_piece), _move.to, self.state.turn_color.swap(), captured_piece);
             }
         }
+
+        // Revert en passant square in any cases
+        self.state.en_passant_square = undo.en_passant_square;
     }
     
-    /// Checks if the current tested side king is in check or not
+    /// Checks if the side that just moved is leaving their king in check (illegal move check)
+    /// This should be called AFTER make(), so turn_color has been swapped to the opponent
+    /// We need to check if the previous player's king (turn_color.swap()) is in check
     pub(crate) fn is_in_check(&mut self) -> bool {
-        let side = self.state_stack[self.ply_index].turn_color;
+        let side = self.state.turn_color.swap(); // The side that just moved
         let king = self.get_piece(side, Piece::King);
         self.is_square_attacked_by_color(king, side.swap())
     }
@@ -1074,7 +1071,7 @@ impl Default for Chessboard {
             white_pieces: 0u64,
             black_pieces: 0u64,
             state: State::default(),
-            state_stack: Box::new([State::default(); 8191]),
+            undo_stack: Box::new([Undo::default(); 8191]),
             ply_index: 0,
         }
     }
