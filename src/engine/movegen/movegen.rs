@@ -4,7 +4,7 @@ use crate::{
         r#move::{Move, MoveKind},
         piece::{Bishop, King, Knight, Pawn, Piece, Queen, Rook},
     },
-    utils::{bit_operations::pop_1st_bit, string_format::display_bitstring_as_chessboard},
+    utils::bit_operations::pop_1st_bit,
 };
 
 /// Add pawn moves to the current move generation cycle.

@@ -5,7 +5,7 @@
 
 use std::{collections::HashMap, sync::OnceLock};
 
-use crate::{as_064b, engine::{magic::Magic, models::{board::{Board, Chessboard, Color, File, Rank}, r#move::MoveKind}}, utils::{bit_operations::{index_to_bitboard, transform}, string_format::display_bitstring_as_chessboard}};
+use crate::{engine::{magic::Magic, models::{board::{Board, Chessboard, Color, File, Rank}, r#move::MoveKind}}, utils::bit_operations::{index_to_bitboard, transform}};
 
 /// Quick enum to match pieces
 #[allow(clippy::missing_docs_in_private_items)]

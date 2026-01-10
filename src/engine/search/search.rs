@@ -1,6 +1,6 @@
 use std::{cmp::max, collections::HashMap, sync::{Arc, Mutex}};
 
-use crate::engine::{models::{board::{Chessboard, Color}, r#move::Move}, movegen::{generate_legal_moves, generate_moves}, search::evaluation::Evaluation};
+use crate::engine::{models::{board::{Chessboard, Color}, r#move::Move}, movegen::generate_legal_moves, search::evaluation::Evaluation};
 use rayon::prelude::*;
 
 #[derive(Default, Clone)]

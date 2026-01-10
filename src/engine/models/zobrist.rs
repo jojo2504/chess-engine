@@ -1,5 +1,4 @@
 use std::sync::OnceLock;
-use rand::Rng;
 
 use crate::engine::models::{board::Color, piece::Piece, state::State};
 
