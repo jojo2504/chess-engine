@@ -286,26 +286,26 @@ impl King {
 
         match turn_color {
             Color::White => {
-                if chessboard.state.can_white_king_castle &&
+                if chessboard.state.can_white_king_castle() &&
                 !chessboard.any_occupied_square(CastlingMasks::WhiteKingSideEmpty as u64) &&
                 !chessboard.any_attacked_squared_by_side(CastlingMasks::WhiteKingSideAttack as u64, Color::Black) {
                     castle_king = location << 2;
                 }
 
-                if chessboard.state.can_white_queen_castle &&
+                if chessboard.state.can_white_queen_castle() &&
                 !chessboard.any_occupied_square(CastlingMasks::WhiteQueenSideEmpty as u64) &&
                 !chessboard.any_attacked_squared_by_side(CastlingMasks::WhiteQueenSideAttack as u64, Color::Black) {
                     castle_queen = location >> 2;
                 }
             },
             Color::Black => {
-                if chessboard.state.can_black_king_castle &&
+                if chessboard.state.can_black_king_castle() &&
                 !chessboard.any_occupied_square(CastlingMasks::BlackKingSideEmpty as u64) &&
                 !chessboard.any_attacked_squared_by_side(CastlingMasks::BlackKingSideAttack as u64, Color::White) {
                     castle_king = location << 2;
                 }
                 
-                if chessboard.state.can_black_queen_castle &&
+                if chessboard.state.can_black_queen_castle() &&
                 !chessboard.any_occupied_square(CastlingMasks::BlackQueenSideEmpty as u64) &&
                 !chessboard.any_attacked_squared_by_side(CastlingMasks::BlackQueenSideAttack as u64, Color::White) {
                     castle_queen = location >> 2;

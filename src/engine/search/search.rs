@@ -52,7 +52,7 @@ impl Search {
             }
         }
 
-        if depth == 0 || chessboard.state.checkmated {
+        if depth == 0 {
             return color * Evaluation::evaluate(chessboard);
         }
 

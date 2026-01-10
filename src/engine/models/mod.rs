@@ -7,3 +7,4 @@ pub mod board;
 /// Move generation and validation.
 pub mod r#move;
 mod zobrist;
+pub mod undo;
